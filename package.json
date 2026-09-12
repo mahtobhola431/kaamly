@@ -1,0 +1,39 @@
+{
+  "name": "rokdajob",
+  "version": "0.1.0",
+  "private": true,
+  "description": "rokdajob - local workforce marketplace and contractor CRM for India",
+  "workspaces": [
+    "shared",
+    "backend",
+    "frontend",
+    "adminpanel"
+  ],
+  "engines": {
+    "node": ">=20.9.0"
+  },
+  "scripts": {
+    "build:shared": "npm run build --workspace @rokdajob/shared",
+    "dev:shared": "npm run dev --workspace @rokdajob/shared",
+    "dev:backend": "npm run dev --workspace @rokdajob/backend",
+    "dev:frontend": "npm run dev --workspace @rokdajob/frontend",
+    "dev:admin": "npm run dev --workspace @rokdajob/adminpanel",
+    "predev": "npm run build:shared",
+    "dev": "concurrently -n shared,api,web,admin -c gray,cyan,green,magenta \"npm:dev:shared\" \"npm:dev:backend\" \"npm:dev:frontend\" \"npm:dev:admin\"",
+    "prebuild": "npm run build:shared",
+    "build": "npm run build --workspace @rokdajob/backend && npm run build --workspace @rokdajob/frontend && npm run build --workspace @rokdajob/adminpanel",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "seed": "npm run seed --workspace @rokdajob/backend",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md,css}\"",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,json,md,css}\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "prettier": "^3.4.2",
+    "prettier-plugin-tailwindcss": "^0.6.11",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.1"
+  }
+}

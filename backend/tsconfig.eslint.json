@@ -1,0 +1,10 @@
+{
+  "//": "Type information for ESLint only. Widens tsconfig.json to the files the build deliberately leaves out (tests, tooling config) so they are still type-checked while linting. The ESM tooling config (vitest.config.mts) stays out: it is ESM and this project is CommonJS.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "."
+  },
+  "include": ["src/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

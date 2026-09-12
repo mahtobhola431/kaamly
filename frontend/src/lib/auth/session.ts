@@ -1,0 +1,83 @@
+import type { AuthUser } from '@rokdajob/shared';
+
+/**
+ * Client-side session state.
+ *
+ * Only the short-lived access token lives here. The refresh token is an httpOnly cookie
+ * the browser never exposes to JavaScript, which is what limits the damage if this is
+ * ever read by injected script: an access token expires in 15 minutes and cannot mint
+ * a new one on its own.
+ *
+ * Storage is `localStorage` so a reload does not sign the user out. The alternative —
+ * memory only, with a silent `/auth/refresh` on every page load — is stronger, and is
+ * the natural next step once an app-level auth provider exists.
+ */
+const TOKEN_KEY = 'kaamly.access_token';
+const USER_KEY = 'kaamly.user';
+
+/** Mirrors the storage value, so reads do not touch `localStorage` on every request. */
+let cachedToken: string | undefined;
+
+function safeRead(key: string): string | undefined {
+  try {
+    return window.localStorage.getItem(key) ?? undefined;
+  } catch {
+    // Private mode, or a browser configured to block site data.
+    return undefined;
+  }
+}
+
+function safeWrite(key: string, value: string | undefined): void {
+  try {
+    if (value === undefined) window.localStorage.removeItem(key);
+    else window.localStorage.setItem(key, value);
+  } catch {
+    // Non-fatal: the session simply does not survive a reload.
+  }
+}
+
+export function getAccessToken(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+  cachedToken ??= safeRead(TOKEN_KEY);
+  return cachedToken;
+}
+
+export function getStoredUser(): AuthUser | undefined {
+  if (typeof window === 'undefined') return undefined;
+  const raw = safeRead(USER_KEY);
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw) as AuthUser;
+  } catch {
+    return undefined;
+  }
+}
+
+export function saveSession(user: AuthUser, accessToken: string): void {
+  cachedToken = accessToken;
+  safeWrite(TOKEN_KEY, accessToken);
+  safeWrite(USER_KEY, JSON.stringify(user));
+}
+
+export function clearSession(): void {
+  cachedToken = undefined;
+  safeWrite(TOKEN_KEY, undefined);
+  safeWrite(USER_KEY, undefined);
+}
+
+/**
+ * Where a user belongs immediately after signing in or registering.
+ *
+ * A contractor who is still `PENDING` has a valid session but cannot do anything yet, so
+ * they go to the waiting screen rather than a dashboard full of actions that would 403.
+ */
+export function landingRouteFor(user: AuthUser): string {
+  if (!user.registrationComplete) return '/auth/role';
+  if (user.role === 'ADMIN') return '/e';
+  if (user.role === 'EMPLOYER') {
+    return user.approval.status === 'APPROVED' || user.approval.status === 'AUTO_APPROVED'
+      ? '/e'
+      : '/auth/pending';
+  }
+  return '/w/onboarding';
+}

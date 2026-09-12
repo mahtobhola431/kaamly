@@ -1,0 +1,356 @@
+/*
+  rokdajob design tokens - shared by the web app and the admin panel.
+  Imported as: @import '@rokdajob/shared/styles.css';
+  Edit this file, never a copy inside an app.
+*/
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  /* brand scales ------------------------------------------------------------ */
+  --navy-50: #eef2f8;
+  --navy-100: #d6e0ef;
+  --navy-200: #adc0dd;
+  --navy-300: #7b95c0;
+  --navy-400: #4c6b9c;
+  --navy-500: #2b4a78;
+  --navy-600: #1b3560;
+  --navy-700: #0f2547;
+  --navy-800: #0a1a34;
+  --navy-900: #061122;
+
+  --amber-50: #fff6e9;
+  --amber-100: #ffe8c6;
+  --amber-200: #fdd08a;
+  --amber-300: #fab24b;
+  --amber-400: #f5991f;
+  --amber-500: #f0850b;
+  --amber-600: #cc6a05;
+  --amber-700: #a15108;
+  --amber-800: #7d3f0d;
+
+  --green-50: #eaf7f0;
+  --green-100: #cbebd9;
+  --green-500: #1f9254;
+  --green-600: #187644;
+  --green-700: #135c35;
+
+  --red-50: #fdeceb;
+  --red-500: #b42318;
+  --red-600: #931c13;
+
+  /* semantic tokens --------------------------------------------------------- */
+  --background: #faf9f7;
+  --foreground: #14181f;
+
+  --card: #ffffff;
+  --card-foreground: var(--foreground);
+
+  --popover: #ffffff;
+  --popover-foreground: var(--foreground);
+
+  --primary: var(--navy-700);
+  --primary-foreground: #f8fafc;
+
+  --secondary: #f1f0ed;
+  --secondary-foreground: var(--navy-700);
+
+  --muted: #f1f0ed;
+  --muted-foreground: #5b6470;
+
+  /* shadcn treats --accent as the subtle hover surface, so the amber action colour
+     lives on its own --action token. */
+  --accent: #ece9e3;
+  --accent-foreground: var(--navy-700);
+
+  --action: var(--amber-500);
+  --action-foreground: #1a1205;
+  --action-hover: var(--amber-600);
+  --action-subtle: var(--amber-50);
+
+  --success: var(--green-500);
+  --success-foreground: #ffffff;
+  --success-subtle: var(--green-50);
+
+  --warning: var(--amber-400);
+  --warning-foreground: #1a1205;
+
+  --destructive: var(--red-500);
+  --destructive-foreground: #ffffff;
+  --destructive-subtle: var(--red-50);
+
+  --border: #e4e2dd;
+  --input: #d8d5ce;
+  --ring: var(--navy-500);
+
+  /* employer CRM sidebar sits on navy regardless of theme */
+  --sidebar: var(--navy-700);
+  --sidebar-foreground: #dbe4f2;
+  --sidebar-muted: #8fa5c6;
+  --sidebar-accent: var(--navy-600);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: var(--navy-600);
+  --sidebar-ring: var(--amber-500);
+
+  /* analytics — see the dataviz guidance in docs/03-DESIGN-SYSTEM.md */
+  --chart-1: var(--navy-500);
+  --chart-2: var(--amber-500);
+  --chart-3: var(--green-500);
+  --chart-4: var(--navy-300);
+  --chart-5: var(--amber-200);
+
+  --radius: 0.625rem;
+}
+
+.dark {
+  --background: #0b1020;
+  --foreground: #e9edf5;
+
+  --card: #111830;
+  --card-foreground: var(--foreground);
+
+  --popover: #111830;
+  --popover-foreground: var(--foreground);
+
+  --primary: #d6e0ef;
+  --primary-foreground: var(--navy-800);
+
+  --secondary: #1a2340;
+  --secondary-foreground: #e9edf5;
+
+  --muted: #1a2340;
+  --muted-foreground: #93a1bd;
+
+  --accent: #202b4d;
+  --accent-foreground: #e9edf5;
+
+  --action: var(--amber-400);
+  --action-foreground: #1a1205;
+  --action-hover: var(--amber-300);
+  --action-subtle: #2a1e0a;
+
+  --success: #34b06d;
+  --success-foreground: #04140b;
+  --success-subtle: #0f2a1c;
+
+  --warning: var(--amber-300);
+  --warning-foreground: #1a1205;
+
+  --destructive: #e5544a;
+  --destructive-foreground: #1a0605;
+  --destructive-subtle: #2c100e;
+
+  --border: #232d4d;
+  --input: #2c3762;
+  --ring: #7b95c0;
+
+  --sidebar: #0a1128;
+  --sidebar-foreground: #cbd6ea;
+  --sidebar-muted: #7d8db0;
+  --sidebar-accent: #16203c;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #1d2745;
+  --sidebar-ring: var(--amber-400);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-action: var(--action);
+  --color-action-foreground: var(--action-foreground);
+  --color-action-hover: var(--action-hover);
+  --color-action-subtle: var(--action-subtle);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-subtle: var(--success-subtle);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-navy-50: var(--navy-50);
+  --color-navy-100: var(--navy-100);
+  --color-navy-200: var(--navy-200);
+  --color-navy-300: var(--navy-300);
+  --color-navy-400: var(--navy-400);
+  --color-navy-500: var(--navy-500);
+  --color-navy-600: var(--navy-600);
+  --color-navy-700: var(--navy-700);
+  --color-navy-800: var(--navy-800);
+  --color-navy-900: var(--navy-900);
+
+  --color-amber-brand-50: var(--amber-50);
+  --color-amber-brand-100: var(--amber-100);
+  --color-amber-brand-200: var(--amber-200);
+  --color-amber-brand-300: var(--amber-300);
+  --color-amber-brand-400: var(--amber-400);
+  --color-amber-brand-500: var(--amber-500);
+  --color-amber-brand-600: var(--amber-600);
+  --color-amber-brand-700: var(--amber-700);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-stack), ui-monospace, SFMono-Regular, monospace;
+
+  /* Moderate radii. Pill shapes are reserved for avatars and status dots. */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-card: 0 1px 2px rgb(15 37 71 / 0.06);
+  --shadow-raised: 0 4px 16px rgb(15 37 71 / 0.08);
+  --shadow-overlay: 0 12px 40px rgb(15 37 71 / 0.14);
+
+  --container-marketing: 80rem;
+  --container-dashboard: 90rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Visible focus everywhere; never remove it, only restyle it. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Wages, counts and table figures must align vertically. */
+  table,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@layer utilities {
+  /* Safe-area aware padding for the worker bottom navigation on notched phones. */
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+  }
+
+  .container-marketing {
+    width: 100%;
+    max-width: var(--container-marketing);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 768px) {
+    .container-marketing {
+      padding-inline: 2rem;
+    }
+  }
+
+  .container-dashboard {
+    width: 100%;
+    max-width: var(--container-dashboard);
+    margin-inline: auto;
+    padding-inline: 1rem;
+  }
+}
+
+/* Motion communicates state; it never performs. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Long-form legal and help copy. Narrow measure, generous leading, no decoration. */
+@layer components {
+  .prose-rokda h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+
+  .prose-rokda h2 {
+    margin-top: 2rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .prose-rokda p,
+  .prose-rokda li {
+    margin-top: 0.75rem;
+    color: var(--muted-foreground);
+    line-height: 1.75;
+  }
+
+  .prose-rokda ul {
+    margin-top: 0.5rem;
+    list-style: disc;
+    padding-left: 1.25rem;
+  }
+
+  .prose-rokda strong {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+
+  .prose-rokda > p:first-of-type {
+    font-size: 1.0625rem;
+  }
+}
