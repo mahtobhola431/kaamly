@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "lib": ["ES2022"],
+    // DOM is here for the Fetch API the http client is built on — `fetch`, `Response`,
+    // `RequestInit`, `FormData`, `URLSearchParams`. Declaring it keeps this package
+    // self-contained: without it the build only works when a consumer's `@types/node`
+    // happens to be hoisted into a parent node_modules, which is not true everywhere.
+    "lib": ["ES2022", "DOM"],
     "module": "CommonJS",
     "moduleResolution": "Node",
     "outDir": "./dist",
