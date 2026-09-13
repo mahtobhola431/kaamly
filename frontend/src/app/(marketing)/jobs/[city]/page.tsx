@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { getCategories, getCity, getCities } from '@/lib/data/catalog';
 import { getJobCountsByCategory, searchJobs } from '@/lib/data/jobs';
 import { parseJobParams } from '@/lib/data/params';
+import { staticParams } from '@/lib/data/prerender';
 import { routes } from '@/lib/routes';
 
 /**
@@ -19,8 +20,10 @@ import { routes } from '@/lib/routes';
  * thin auto-generated page (docs/06-RISKS.md R14).
  */
 export async function generateStaticParams() {
-  const cities = await getCities();
-  return cities.map((city) => ({ city: city.slug }));
+  return staticParams('the city list', async () => {
+    const cities = await getCities();
+    return cities.map((city) => ({ city: city.slug }));
+  });
 }
 
 export async function generateMetadata(props: PageProps<'/jobs/[city]'>): Promise<Metadata> {

@@ -31,12 +31,15 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { demoAgo, demoDate, demoDay } from '@/data/time';
 import { getJob, getSimilarJobs, searchJobs } from '@/lib/data/jobs';
+import { staticParams } from '@/lib/data/prerender';
 import { routes } from '@/lib/routes';
 import { siteUrl } from '@/lib/env';
 
 export async function generateStaticParams() {
-  const { items } = await searchJobs({ limit: 50 });
-  return items.map((job) => ({ slug: job.slug }));
+  return staticParams('job listings', async () => {
+    const { items } = await searchJobs({ limit: 50 });
+    return items.map((job) => ({ slug: job.slug }));
+  });
 }
 
 export async function generateMetadata(props: PageProps<'/jobs/post/[slug]'>): Promise<Metadata> {

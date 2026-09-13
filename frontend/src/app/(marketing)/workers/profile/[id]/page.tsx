@@ -29,11 +29,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { demoAgo, demoDate } from '@/data/time';
 import { getSimilarWorkers, getWorker, getWorkerReviews, searchWorkers } from '@/lib/data/workers';
 import { getWorkHistory } from '@/lib/data/worker-area';
+import { staticParams } from '@/lib/data/prerender';
 import { routes } from '@/lib/routes';
 
 export async function generateStaticParams() {
-  const { items } = await searchWorkers({ limit: 50 });
-  return items.map((worker) => ({ id: worker.id }));
+  return staticParams('worker profiles', async () => {
+    const { items } = await searchWorkers({ limit: 50 });
+    return items.map((worker) => ({ id: worker.id }));
+  });
 }
 
 export async function generateMetadata(
@@ -308,7 +311,6 @@ export default async function WorkerProfilePage(props: PageProps<'/workers/profi
               Post a job and workers like {worker.user.name.split(' ')[0]} will see it in their
               nearby feed.
             </p>
-            
           </div>
 
           <div className="bg-card mt-4 rounded-lg border p-5">

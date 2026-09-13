@@ -1,6 +1,7 @@
 import { LIMITS } from '@rokdajob/shared';
 import type { Job, PaginationMeta } from '@rokdajob/shared';
 import { ApiClientError, api } from '@/lib/api/client';
+import { buildFallback } from '@/lib/data/prerender';
 
 /**
  * Job discovery, served by `GET /jobs`.
@@ -74,29 +75,41 @@ export async function searchJobs(params: JobSearchParams = {}): Promise<JobSearc
     ...(params.q?.trim() ? { q: params.q.trim() } : {}),
   };
 
-  try {
-    const { items, meta } = await api.list<Job>('/jobs', { query, next: { revalidate: 30 } });
-    return { items, meta };
-  } catch (error) {
-    // An unknown city or pincode is a bad URL, not a crash — render the empty state.
-    if (error instanceof ApiClientError && (error.status === 400 || error.status === 404)) {
-      return { items: [], meta: EMPTY_PAGE(page, limit) };
-    }
-    throw error;
-  }
+  return buildFallback(
+    'job search',
+    async () => {
+      try {
+        const { items, meta } = await api.list<Job>('/jobs', { query, next: { revalidate: 30 } });
+        return { items, meta };
+      } catch (error) {
+        // An unknown city or pincode is a bad URL, not a crash — render the empty state.
+        if (error instanceof ApiClientError && (error.status === 400 || error.status === 404)) {
+          return { items: [], meta: EMPTY_PAGE(page, limit) };
+        }
+        throw error;
+      }
+    },
+    { items: [], meta: EMPTY_PAGE(page, limit) },
+  );
 }
 
 export async function getJob(idOrSlug: string): Promise<Job | null> {
-  try {
-    return await api.get<Job>(`/jobs/${encodeURIComponent(idOrSlug)}`, {
-      next: { revalidate: 30 },
-    });
-  } catch (error) {
-    if (error instanceof ApiClientError && (error.status === 404 || error.status === 400)) {
-      return null;
-    }
-    throw error;
-  }
+  return buildFallback(
+    `job "${idOrSlug}"`,
+    async () => {
+      try {
+        return await api.get<Job>(`/jobs/${encodeURIComponent(idOrSlug)}`, {
+          next: { revalidate: 30 },
+        });
+      } catch (error) {
+        if (error instanceof ApiClientError && (error.status === 404 || error.status === 400)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    null,
+  );
 }
 
 /** Other open jobs needing the same skills, for the "similar jobs" rail. */
@@ -141,13 +154,22 @@ export async function getSavedJobs(): Promise<Job[]> {
 }
 
 export async function getJobCountsByCity(): Promise<Record<string, number>> {
-  return api.get<Record<string, number>>('/jobs/counts-by-city', { next: { revalidate: 300 } });
+  return buildFallback(
+    'job counts by city',
+    () => api.get<Record<string, number>>('/jobs/counts-by-city', { next: { revalidate: 300 } }),
+    {},
+  );
 }
 
 export async function getJobCountsByCategory(): Promise<Record<string, number>> {
-  return api.get<Record<string, number>>('/jobs/counts-by-category', {
-    next: { revalidate: 300 },
-  });
+  return buildFallback(
+    'job counts by category',
+    () =>
+      api.get<Record<string, number>>('/jobs/counts-by-category', {
+        next: { revalidate: 300 },
+      }),
+    {},
+  );
 }
 
 export async function getLatestJobs(take = 6): Promise<Job[]> {

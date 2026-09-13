@@ -1,6 +1,7 @@
 import { LIMITS } from '@rokdajob/shared';
 import type { Availability, PaginationMeta, Review, WorkerProfile } from '@rokdajob/shared';
 import { ApiClientError, api } from '@/lib/api/client';
+import { buildFallback } from '@/lib/data/prerender';
 
 /**
  * Worker discovery, served by `GET /workers`.
@@ -84,19 +85,25 @@ export async function searchWorkers(params: WorkerSearchParams = {}): Promise<Wo
     ...(params.availability?.length === 1 ? { availability: params.availability[0] } : {}),
   };
 
-  try {
-    const { items, meta } = await api.list<WorkerProfile>('/workers', {
-      query,
-      next: { revalidate: 30 },
-    });
-    return { items, meta };
-  } catch (error) {
-    // An unknown city or pincode is a bad URL, not a crash — render the empty state.
-    if (error instanceof ApiClientError && (error.status === 400 || error.status === 404)) {
-      return { items: [], meta: EMPTY_PAGE(page, limit) };
-    }
-    throw error;
-  }
+  return buildFallback(
+    'worker search',
+    async () => {
+      try {
+        const { items, meta } = await api.list<WorkerProfile>('/workers', {
+          query,
+          next: { revalidate: 30 },
+        });
+        return { items, meta };
+      } catch (error) {
+        // An unknown city or pincode is a bad URL, not a crash — render the empty state.
+        if (error instanceof ApiClientError && (error.status === 400 || error.status === 404)) {
+          return { items: [], meta: EMPTY_PAGE(page, limit) };
+        }
+        throw error;
+      }
+    },
+    { items: [], meta: EMPTY_PAGE(page, limit) },
+  );
 }
 
 export async function getWorker(id: string): Promise<WorkerProfile | null> {
@@ -104,14 +111,20 @@ export async function getWorker(id: string): Promise<WorkerProfile | null> {
   // rather than sending a request the API will reject.
   if (!/^[0-9a-fA-F]{24}$/.test(id)) return null;
 
-  try {
-    return await api.get<WorkerProfile>(`/workers/${id}`, { next: { revalidate: 30 } });
-  } catch (error) {
-    if (error instanceof ApiClientError && (error.status === 404 || error.status === 400)) {
-      return null;
-    }
-    throw error;
-  }
+  return buildFallback(
+    `worker "${id}"`,
+    async () => {
+      try {
+        return await api.get<WorkerProfile>(`/workers/${id}`, { next: { revalidate: 30 } });
+      } catch (error) {
+        if (error instanceof ApiClientError && (error.status === 404 || error.status === 400)) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    null,
+  );
 }
 
 /**
@@ -140,9 +153,14 @@ export async function getSimilarWorkers(worker: WorkerProfile, take = 4): Promis
 
 /** Counts per city, used by the SEO landing pages and the locations hub. */
 export async function getWorkerCountsByCity(): Promise<Record<string, number>> {
-  return api.get<Record<string, number>>('/workers/counts-by-city', {
-    next: { revalidate: 300 },
-  });
+  return buildFallback(
+    'worker counts by city',
+    () =>
+      api.get<Record<string, number>>('/workers/counts-by-city', {
+        next: { revalidate: 300 },
+      }),
+    {},
+  );
 }
 
 export interface WorkerFacet {

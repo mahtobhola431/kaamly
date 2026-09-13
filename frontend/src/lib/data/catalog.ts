@@ -1,5 +1,6 @@
 import type { Category, SeedCity, Skill } from '@rokdajob/shared';
 import { api } from '@/lib/api/client';
+import { buildFallback } from '@/lib/data/prerender';
 
 /**
  * Taxonomy and geography, served by `GET /catalog/*`.
@@ -11,7 +12,11 @@ import { api } from '@/lib/api/client';
 const CACHE = { next: { revalidate: 3600, tags: ['catalog'] } };
 
 export async function getCategories(): Promise<Category[]> {
-  return api.get<Category[]>('/catalog/categories', CACHE);
+  return buildFallback(
+    'the category list',
+    () => api.get<Category[]>('/catalog/categories', CACHE),
+    [],
+  );
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
@@ -20,10 +25,15 @@ export async function getCategory(slug: string): Promise<Category | null> {
 }
 
 export async function getSkills(categorySlug?: string): Promise<Skill[]> {
-  return api.get<Skill[]>('/catalog/skills', {
-    ...CACHE,
-    ...(categorySlug ? { query: { category: categorySlug } } : {}),
-  });
+  return buildFallback(
+    'the skill list',
+    () =>
+      api.get<Skill[]>('/catalog/skills', {
+        ...CACHE,
+        ...(categorySlug ? { query: { category: categorySlug } } : {}),
+      }),
+    [],
+  );
 }
 
 export async function getSkill(slug: string): Promise<Skill | null> {
@@ -38,7 +48,7 @@ export async function getPopularSkills(take = 12): Promise<Skill[]> {
 }
 
 export async function getCities(): Promise<readonly SeedCity[]> {
-  return api.get<SeedCity[]>('/catalog/cities', CACHE);
+  return buildFallback('the city list', () => api.get<SeedCity[]>('/catalog/cities', CACHE), []);
 }
 
 export async function getCity(slug: string): Promise<SeedCity | null> {
