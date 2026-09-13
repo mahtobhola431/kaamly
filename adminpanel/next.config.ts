@@ -13,15 +13,24 @@ const nextConfig: NextConfig = {
   // workspace package behaves like local source.
   transpilePackages: ['@rokdajob/shared'],
 
-  // Proxy API requests through Vercel so the browser uses HTTPS.
+  /**
+   * Proxies the browser's API calls to the backend.
+   *
+   * This exists because the API is served over plain HTTP: an HTTPS page cannot call it
+   * directly, the browser blocks it as mixed content. Routing through this origin also
+   * makes every request same-site, so the refresh cookie works with `SameSite=Lax`.
+   *
+   * Only wired up when NEXT_PUBLIC_API_URL is a path — with an absolute URL the browser
+   * calls the API directly and no proxy is wanted. The destination is never hardcoded, so
+   * the host can change without a code edit.
+   */
   async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination:
-          'http://ec2-3-92-52-134.compute-1.amazonaws.com/api/:path*',
-      },
-    ];
+    const publicBase = (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+    const internal = process.env.INTERNAL_API_URL?.replace(/\/$/, '');
+
+    if (!publicBase.startsWith('/') || !internal) return [];
+
+    return [{ source: `${publicBase}/:path*`, destination: `${internal}/:path*` }];
   },
 
   images: {

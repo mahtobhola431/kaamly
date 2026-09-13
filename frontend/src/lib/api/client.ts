@@ -2,7 +2,7 @@ import { createApiClient, type ApiClient, type RequestOptions } from '@rokdajob/
 import { ApiClientError } from '@rokdajob/shared';
 import { getAccessToken } from '@/lib/auth/session';
 import { sessionEnded, store, tokenRefreshed } from '@/lib/store';
-import { clientEnv } from '@/lib/env';
+import { apiBaseUrl } from '@/lib/env';
 
 /**
  * The web app's API client.
@@ -17,11 +17,11 @@ import { clientEnv } from '@/lib/env';
  * boots the session into Redux.
  */
 const base = createApiClient({
-  baseUrl: clientEnv.NEXT_PUBLIC_API_URL,
+  baseUrl: apiBaseUrl(),
   getToken: () => store.getState().auth.accessToken ?? getAccessToken(),
 });
 
-const root = clientEnv.NEXT_PUBLIC_API_URL.replace(/\/$/, '');
+const root = apiBaseUrl();
 
 /** In flight refresh, shared so ten parallel 401s cause one refresh, not ten. */
 let inFlight: Promise<boolean> | null = null;
