@@ -57,6 +57,25 @@ export const contactLimiter = rateLimit({
   limit: 30,
 });
 
+/**
+ * Applying and messaging.
+ *
+ * Generous enough that a worker going through a page of results and applying to every
+ * job that fits never notices it, tight enough that a script cannot spray a thousand
+ * applications across the board.
+ */
+export const applyLimiter = rateLimit({
+  ...shared,
+  windowMs: 60 * 60 * 1000,
+  limit: 60,
+});
+
+export const messageLimiter = rateLimit({
+  ...shared,
+  windowMs: 60 * 1000,
+  limit: 30,
+});
+
 export const uploadLimiter = rateLimit({
   ...shared,
   windowMs: 60 * 60 * 1000,

@@ -16,6 +16,7 @@ next-env.d.ts
 .env.local
 .env.*.local
 !.env.example
+.docs
 
 # logs
 logs/
@@ -36,6 +37,7 @@ test-results/
 .idea/
 .DS_Store
 Thumbs.db
+/docs
 
 # misc
 .vercel

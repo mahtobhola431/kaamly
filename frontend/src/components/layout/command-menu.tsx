@@ -8,9 +8,9 @@ import {
   KanbanSquare,
   LayoutDashboard,
   MessageSquare,
-  Plus,
   Search,
   UsersRound,
+  type LucideIcon,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,8 +24,14 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 
-const ACTIONS = [
-  { href: '/e/jobs/new', label: 'Post a new job', icon: Plus, shortcut: 'N' },
+interface MenuAction {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  shortcut?: string;
+}
+
+const ACTIONS: MenuAction[] = [
   { href: '/e/workers', label: 'Search workers', icon: Search },
   { href: '/e/applicants', label: 'Open applicant pipeline', icon: KanbanSquare },
 ];

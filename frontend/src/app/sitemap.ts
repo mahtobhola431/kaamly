@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
-import { getCategories, getCities, getSkills } from '@/lib/data/catalog';
-import { searchJobs } from '@/lib/data/jobs';
-import { searchWorkers } from '@/lib/data/workers';
+import { getCities } from '@/lib/data/catalog';
+import { getJobFacets, searchJobs } from '@/lib/data/jobs';
+import { getWorkerFacets, searchWorkers } from '@/lib/data/workers';
 import { siteUrl } from '@/lib/env';
 import { routes } from '@/lib/routes';
 
@@ -11,10 +11,8 @@ import { routes } from '@/lib/routes';
  * thin-page rule the pages themselves enforce (docs/06-RISKS.md R14).
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [cities, categories, skills, jobs, workers] = await Promise.all([
+  const [cities, jobs, workers] = await Promise.all([
     getCities(),
-    getCategories(),
-    getSkills(),
     searchJobs({ limit: 50 }),
     searchWorkers({ limit: 50 }),
   ]);
@@ -50,30 +48,25 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const cityCategoryPages: MetadataRoute.Sitemap = [];
   const citySkillPages: MetadataRoute.Sitemap = [];
 
-  for (const city of cities) {
-    for (const category of categories) {
-      const { meta } = await searchJobs({ city: city.slug, category: category.slug, limit: 1 });
-      if (meta.total > 0) {
-        cityCategoryPages.push({
-          url: siteUrl(routes.jobsByCityCategory(city.slug, category.slug)),
-          lastModified: now,
-          changeFrequency: 'daily',
-          priority: 0.7,
-        });
-      }
-    }
+  // Same for job landing pages: one aggregation rather than a request per pair.
+  for (const facet of await getJobFacets()) {
+    cityCategoryPages.push({
+      url: siteUrl(routes.jobsByCityCategory(facet.city, facet.category)),
+      lastModified: now,
+      changeFrequency: 'daily',
+      priority: 0.7,
+    });
+  }
 
-    for (const skill of skills) {
-      const { meta } = await searchWorkers({ city: city.slug, skills: [skill.slug], limit: 1 });
-      if (meta.total > 0) {
-        citySkillPages.push({
-          url: siteUrl(routes.workersByCitySkill(city.slug, `${skill.slug}s`)),
-          lastModified: now,
-          changeFrequency: 'weekly',
-          priority: 0.7,
-        });
-      }
-    }
+  // Worker landing pages come from one aggregation of the pairs that actually have
+  // workers, rather than a search request per city/skill combination.
+  for (const facet of await getWorkerFacets()) {
+    citySkillPages.push({
+      url: siteUrl(routes.workersByCitySkill(facet.city, `${facet.skill}s`)),
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    });
   }
 
   const jobPages: MetadataRoute.Sitemap = jobs.items.map((job) => ({

@@ -25,7 +25,7 @@ import {
 } from '@/data/insights';
 import { getCategories, getFeaturedCities, getCities, getPopularSkills } from '@/lib/data/catalog';
 import { getJob, getJobCountsByCategory, getJobCountsByCity, getLatestJobs } from '@/lib/data/jobs';
-import { getWorker, getWorkerCountsByCity, searchWorkers } from '@/lib/data/workers';
+import { getWorkerCountsByCity, searchWorkers } from '@/lib/data/workers';
 
 export const metadata: Metadata = {
   title: `${BRAND.name} — ${BRAND.tagline}`,
@@ -45,7 +45,6 @@ export default async function LandingPage() {
     jobsByCategory,
     workersByCity,
     availableWorkers,
-    featuredWorker,
     featuredJob,
   ] = await Promise.all([
     getCities(),
@@ -57,9 +56,11 @@ export default async function LandingPage() {
     getJobCountsByCategory(),
     getWorkerCountsByCity(),
     searchWorkers({ availability: ['AVAILABLE_NOW'], sort: 'rating', limit: 6 }),
-    getWorker('wpr_rajesh-kumar'),
     getJob('construction-helpers-bhiwandi-warehouse-site'),
   ]);
+
+  // The hero highlights whoever the search actually returned, rather than a fixed id.
+  const featuredWorker = availableWorkers.items[0] ?? null;
 
   return (
     <>

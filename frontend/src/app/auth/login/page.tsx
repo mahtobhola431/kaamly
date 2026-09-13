@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LoginForm } from '@/components/auth/auth-forms';
@@ -15,7 +16,13 @@ export default function LoginPage() {
       <p className="text-muted-foreground mt-2">Sign in to continue where you left off.</p>
 
       <div className="mt-6">
-        <LoginForm />
+        {/*
+          The form reads `?next=`, which is only known at request time. The Suspense
+          boundary is what lets the rest of this page prerender.
+        */}
+        <Suspense fallback={<div className="bg-muted h-64 animate-pulse rounded-lg" />}>
+          <LoginForm />
+        </Suspense>
       </div>
 
       <p className="text-muted-foreground mt-6 text-sm">

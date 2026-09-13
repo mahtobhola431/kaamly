@@ -7,6 +7,7 @@ import type { ApiFieldError } from '@rokdajob/shared';
 import { isProduction } from '@/config/env';
 import { logger } from '@/config/logger';
 import { ApiError, isApiError } from '@/utils/api-error';
+import { normaliseUploadError } from './upload';
 
 /** Terminal 404 for unmatched routes, so the client always gets the standard envelope. */
 export const notFoundHandler: RequestHandler = (req, _res, next) => {
@@ -43,6 +44,11 @@ function duplicateKeyToApiError(error: MongoServerError): ApiError {
 }
 
 function normalize(error: unknown): ApiError {
+  // Multer rejects oversized and wrong-typed uploads before any handler runs, so its
+  // errors arrive here rather than through a service.
+  const upload = normaliseUploadError(error);
+  if (isApiError(upload)) return upload;
+
   if (isApiError(error)) return error;
 
   if (error instanceof ZodError) {

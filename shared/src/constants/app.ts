@@ -1,4 +1,12 @@
-import { ApplicationStage, Availability, JobStatus, SalaryType, Shift, Urgency } from '../enums';
+import {
+  ApplicationStage,
+  ApprovalStatus,
+  Availability,
+  JobStatus,
+  SalaryType,
+  Shift,
+  Urgency,
+} from '../enums';
 
 export const BRAND = {
   name: 'Kaamly',
@@ -85,6 +93,19 @@ export const URGENCY_LABEL: Record<Urgency, string> = {
   NORMAL: 'Normal',
   URGENT: 'Urgent',
   IMMEDIATE: 'Immediate',
+};
+
+/**
+ * Approval state, worded for the account owner rather than for an admin.
+ *
+ * `AUTO_APPROVED` reads as "Active" on purpose: a worker was never in a queue, and telling
+ * them they were "auto approved" only invites the question of what they were approved for.
+ */
+export const APPROVAL_STATUS_LABEL: Record<ApprovalStatus, string> = {
+  AUTO_APPROVED: 'Active',
+  PENDING: 'Awaiting approval',
+  APPROVED: 'Approved',
+  REJECTED: 'Not approved',
 };
 
 /**

@@ -1,0 +1,24 @@
+# The build context is the repository root, so this keeps the image — and the upload to
+# the builder — down to what the API actually needs.
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+
+frontend
+adminpanel
+docs
+
+.git
+.github
+.vscode
+.idea
+
+**/.env
+**/.env.*
+!**/.env.example
+
+**/*.log
+**/coverage
+**/.DS_Store

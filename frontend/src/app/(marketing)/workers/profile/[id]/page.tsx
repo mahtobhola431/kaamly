@@ -308,9 +308,7 @@ export default async function WorkerProfilePage(props: PageProps<'/workers/profi
               Post a job and workers like {worker.user.name.split(' ')[0]} will see it in their
               nearby feed.
             </p>
-            <Button asChild variant="action" className="mt-4 w-full">
-              <Link href={routes.e.newJob}>Post a job</Link>
-            </Button>
+            
           </div>
 
           <div className="bg-card mt-4 rounded-lg border p-5">

@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { ApiClientError, api } from '@/lib/api/client';
-import { clearSession } from '@/lib/auth/session';
+import { sessionEnded } from '@/lib/store';
+import { useAppDispatch } from '@/lib/store/hooks';
 import { Button } from '@/components/ui/button';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { routes } from '@/lib/routes';
@@ -23,6 +24,7 @@ import { routes } from '@/lib/routes';
  */
 function useSignOut() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [isPending, startTransition] = useTransition();
   const [isCalling, setCalling] = useState(false);
 
@@ -40,7 +42,7 @@ function useSignOut() {
     } finally {
       // Always drop the local token, even if the server call failed: the session is over
       // as far as this device is concerned.
-      clearSession();
+      dispatch(sessionEnded());
       setCalling(false);
       startTransition(() => {
         router.push(routes.login);

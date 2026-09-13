@@ -10,11 +10,27 @@ import {
   formatWage,
 } from '@rokdajob/shared';
 import type { Application, ApplicationStage } from '@rokdajob/shared';
-import { GripVertical, MapPin, MoreHorizontal, Star } from 'lucide-react';
+import { GripVertical, Loader2, MapPin, MoreHorizontal, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { STAGE_ACCENT } from '@/components/domain/badges';
 import { UserAvatar } from '@/components/domain/user-avatar';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { ApiClientError } from '@/lib/api/client';
+import {
+  hireApplicant,
+  rejectApplicant,
+  setApplicationStage,
+} from '@/lib/data/applications';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,36 +45,89 @@ import { cn } from '@/lib/utils';
 /**
  * Employer pipeline board.
  *
- * Drag and drop is the fast path, but every move is also available from a keyboard-reachable
- * menu on each card — a board that can only be operated by mouse is not shippable.
+ * Drag and drop is the fast path; every move is also on a keyboard-reachable menu on the
+ * card. Transitions come from `ALLOWED_STAGE_TRANSITIONS`, the table the API enforces, so
+ * the UI cannot offer a move the server would refuse.
  *
- * Transitions are validated against `ALLOWED_STAGE_TRANSITIONS` from the shared package,
- * the same table the API will enforce, so the UI cannot suggest an impossible move.
+ * Moves are optimistic and revert if the server says no — which is what happens when two
+ * people go for the last vacancy.
  */
-export function ApplicationPipeline({ applications }: { applications: Application[] }) {
+export function ApplicationPipeline({
+  applications,
+  onChanged,
+}: {
+  applications: Application[];
+  /** Called after a persisted change, so the page can refresh counts around the board. */
+  onChanged?: () => void;
+}) {
   const [board, setBoard] = useState(applications);
   const [dragging, setDragging] = useState<string | null>(null);
   const [overStage, setOverStage] = useState<ApplicationStage | null>(null);
+  const [rejecting, setRejecting] = useState<Application | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Follows the query it was given. Adjusted during render rather than in an effect, so
+  // the stale board is never committed to the DOM.
+  const [rendered, setRendered] = useState(applications);
+  if (rendered !== applications) {
+    setRendered(applications);
+    setBoard(applications);
+  }
+
+  function patch(id: string, changes: Partial<Application>): void {
+    setBoard((previous) =>
+      previous.map((item) => (item.id === id ? { ...item, ...changes } : item)),
+    );
+  }
+
+  async function commit(
+    application: Application,
+    to: ApplicationStage,
+    run: () => Promise<Application>,
+  ): Promise<void> {
+    const before = application.stage;
+    patch(application.id, { stage: to });
+    setSaving(true);
+
+    try {
+      const saved = await run();
+      patch(application.id, saved);
+      toast.success(`${application.worker.name} moved to ${APPLICATION_STAGE_LABEL[to]}`);
+      onChanged?.();
+    } catch (error) {
+      patch(application.id, { stage: before });
+      toast.error(
+        error instanceof ApiClientError
+          ? error.message
+          : `Could not move ${application.worker.name}.`,
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
   function move(id: string, to: ApplicationStage): void {
     const application = board.find((item) => item.id === id);
-    if (!application || application.stage === to) return;
+    if (!application || application.stage === to || saving) return;
 
-    const allowed = ALLOWED_STAGE_TRANSITIONS[application.stage];
-    if (!allowed.includes(to)) {
+    if (!ALLOWED_STAGE_TRANSITIONS[application.stage].includes(to)) {
       toast.error(
         `Cannot move from ${APPLICATION_STAGE_LABEL[application.stage]} to ${APPLICATION_STAGE_LABEL[to]}`,
       );
       return;
     }
 
-    setBoard((previous) =>
-      previous.map((item) => (item.id === id ? { ...item, stage: to } : item)),
-    );
+    // Rejecting requires a reason.
+    if (to === 'REJECTED') {
+      setRejecting(application);
+      return;
+    }
 
-    toast.success(`${application.worker.name} moved to ${APPLICATION_STAGE_LABEL[to]}`, {
-      description: 'Not saved — the applications API is not connected yet.',
-    });
+    void commit(application, to, () =>
+      to === 'HIRED'
+        ? hireApplicant(application.id)
+        : setApplicationStage(application.id, to),
+    );
   }
 
   const columns = PIPELINE_STAGES.map((stage) => ({
@@ -209,6 +278,87 @@ export function ApplicationPipeline({ applications }: { applications: Applicatio
           </section>
         ))}
       </div>
+
+      <RejectDialog
+        application={rejecting}
+        saving={saving}
+        onCancel={() => setRejecting(null)}
+        onConfirm={(reason) => {
+          const application = rejecting;
+          if (!application) return;
+          setRejecting(null);
+          void commit(application, 'REJECTED', () =>
+            rejectApplicant(application.id, reason),
+          );
+        }}
+      />
     </div>
+  );
+}
+
+/** The worker sees this text on their applications screen; the API requires it. */
+function RejectDialog({
+  application,
+  saving,
+  onCancel,
+  onConfirm,
+}: {
+  application: Application | null;
+  saving: boolean;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}) {
+  const [reason, setReason] = useState('');
+
+  return (
+    <Dialog
+      open={application !== null}
+      onOpenChange={(open) => {
+        if (!open) {
+          setReason('');
+          onCancel();
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Not moving forward with {application?.worker.name}?</DialogTitle>
+          <DialogDescription>
+            They will see this on their applications screen. A line is enough — &ldquo;role
+            filled&rdquo; or &ldquo;need someone closer to the site&rdquo;.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="reject-reason">Reason</Label>
+          <Textarea
+            id="reject-reason"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            rows={3}
+            maxLength={500}
+            placeholder="We have filled this role for now."
+            autoFocus
+          />
+        </div>
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onCancel} disabled={saving}>
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={saving || reason.trim().length < 3}
+            onClick={() => {
+              onConfirm(reason.trim());
+              setReason('');
+            }}
+          >
+            {saving ? <Loader2 className="animate-spin" aria-hidden /> : null}
+            Reject
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

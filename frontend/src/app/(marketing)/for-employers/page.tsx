@@ -71,9 +71,7 @@ export default function ForEmployersPage() {
             local labour, and a crew you want to call back next month.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Button asChild variant="action" size="lg">
-              <Link href={routes.e.newJob}>Post a job</Link>
-            </Button>
+      
             <Button asChild variant="outline" size="lg">
               <Link href={routes.workers}>Search workers first</Link>
             </Button>

@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Conversation, Message, PublicUser } from '@rokdajob/shared';
-import { ArrowLeft, Briefcase, Send } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Briefcase, Loader2, Send } from 'lucide-react';
 import { UserAvatar } from '@/components/domain/user-avatar';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,11 +11,17 @@ import { demoTime } from '@/data/time';
 import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
+interface PendingMessage {
+  id: string;
+  body: string;
+  failed: boolean;
+}
+
 /**
  * Message thread with an optimistic composer.
  *
- * Sent messages are appended locally and marked pending — there is no transport yet, and
- * the UI says so rather than pretending the message was delivered.
+ * The message appears immediately and is reconciled when `onSend` resolves. A failed send
+ * stays on screen, marked, with the text put back in the box.
  */
 export function MessageThread({
   conversation,
@@ -23,22 +29,49 @@ export function MessageThread({
   viewerId,
   other,
   backHref,
+  onSend,
 }: {
   conversation: Conversation;
   messages: Message[];
   viewerId: string;
   other: PublicUser;
   backHref: string;
+  /** Resolves once the server has the message; rejecting marks it as not sent. */
+  onSend: (body: string) => Promise<void>;
 }) {
   const [draft, setDraft] = useState('');
-  const [pending, setPending] = useState<{ id: string; body: string }[]>([]);
+  const [pending, setPending] = useState<PendingMessage[]>([]);
+  const [sending, setSending] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // Open at the newest message, and follow along as more arrive.
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ block: 'end' });
+  }, [messages.length, pending.length]);
 
   function send(event: React.FormEvent): void {
     event.preventDefault();
     const body = draft.trim();
-    if (!body) return;
-    setPending((previous) => [...previous, { id: `local-${previous.length}`, body }]);
+    if (!body || sending) return;
+
+    const id = `local-${Date.now()}`;
+    setPending((previous) => [...previous, { id, body, failed: false }]);
     setDraft('');
+    setSending(true);
+
+    void onSend(body)
+      .then(() => {
+        // The refreshed thread carries it now; drop the local copy.
+        setPending((previous) => previous.filter((message) => message.id !== id));
+      })
+      .catch(() => {
+        setPending((previous) =>
+          previous.map((message) => (message.id === id ? { ...message, failed: true } : message)),
+        );
+        // Put the text back so it can be resent without retyping.
+        setDraft((current) => current || body);
+      })
+      .finally(() => setSending(false));
   }
 
   return (
@@ -94,14 +127,38 @@ export function MessageThread({
 
         {pending.map((message) => (
           <div key={message.id} className="flex justify-end">
-            <div className="bg-primary/60 text-primary-foreground max-w-[80%] rounded-lg rounded-br-sm px-3 py-2 text-sm sm:max-w-[65%]">
+            <div
+              className={cn(
+                'max-w-[80%] rounded-lg rounded-br-sm px-3 py-2 text-sm sm:max-w-[65%]',
+                message.failed
+                  ? 'bg-destructive-subtle text-foreground border-destructive/30 border'
+                  : 'bg-primary/60 text-primary-foreground',
+              )}
+            >
               <p className="whitespace-pre-line leading-relaxed">{message.body}</p>
-              <p className="text-primary-foreground/70 mt-1 text-[11px]">
-                Not sent — messaging API not connected yet
+              <p
+                className={cn(
+                  'mt-1 flex items-center gap-1 text-[11px]',
+                  message.failed ? 'text-destructive' : 'text-primary-foreground/70',
+                )}
+              >
+                {message.failed ? (
+                  <>
+                    <AlertCircle className="size-3" aria-hidden />
+                    Not sent — try again
+                  </>
+                ) : (
+                  <>
+                    <Loader2 className="size-3 animate-spin" aria-hidden />
+                    Sending…
+                  </>
+                )}
               </p>
             </div>
           </div>
         ))}
+
+        <div ref={endRef} />
       </div>
 
       <form onSubmit={send} className="flex items-end gap-2 border-t p-3">
@@ -126,10 +183,10 @@ export function MessageThread({
           type="submit"
           variant="action"
           size="icon"
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
           aria-label="Send"
         >
-          <Send aria-hidden />
+          {sending ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
         </Button>
       </form>
     </div>

@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import { ResetPasswordForm } from '@/components/auth/auth-forms';
 
@@ -15,7 +16,13 @@ export default function ResetPasswordPage() {
       </p>
 
       <div className="mt-6">
-        <ResetPasswordForm />
+        {/*
+          The form reads the `?token=` query parameter, which is only known at request
+          time. The Suspense boundary is what lets the rest of this page prerender.
+        */}
+        <Suspense fallback={<div className="bg-muted h-48 animate-pulse rounded-lg" />}>
+          <ResetPasswordForm />
+        </Suspense>
       </div>
     </>
   );

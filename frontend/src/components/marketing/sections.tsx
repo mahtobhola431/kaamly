@@ -147,13 +147,7 @@ export function CtaBand() {
           Free to start. No listing fees while we grow with our first employers.
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          <Button
-            asChild
-            size="lg"
-            className="bg-primary text-primary-foreground hover:bg-navy-600"
-          >
-            <Link href="/e/jobs/new">Post a job</Link>
-          </Button>
+         
           <Button
             asChild
             size="lg"

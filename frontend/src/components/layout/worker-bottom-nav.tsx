@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Briefcase, FileText, Home, MessageSquare, User } from 'lucide-react';
+import { useUnreadMessages } from '@/lib/data/use-unread-messages';
 import { cn } from '@/lib/utils';
 
 const ITEMS = [
@@ -19,8 +20,9 @@ const ITEMS = [
  * Five destinations, 56px tall targets, always visible. This is the primary navigation
  * for workers on small Android phones (brief §22, §45).
  */
-export function WorkerBottomNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
+export function WorkerBottomNav() {
   const pathname = usePathname();
+  const unreadMessages = useUnreadMessages();
 
   return (
     <nav
@@ -64,8 +66,9 @@ export function WorkerBottomNav({ unreadMessages = 0 }: { unreadMessages?: numbe
 }
 
 /** Desktop equivalent — a slim rail so the worker app is usable on a laptop too. */
-export function WorkerSideNav({ unreadMessages = 0 }: { unreadMessages?: number }) {
+export function WorkerSideNav() {
   const pathname = usePathname();
+  const unreadMessages = useUnreadMessages();
 
   return (
     <nav

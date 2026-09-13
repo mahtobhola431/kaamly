@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Menu, X } from 'lucide-react';
 import { Logo } from '@/components/layout/logo';
+import { UserMenu, UserMenuMobile } from '@/components/layout/user-menu';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -61,12 +62,7 @@ export function SiteHeader({
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="hidden sm:inline-flex">
-            <Link href="/auth/login">Sign in</Link>
-          </Button>
-          <Button asChild variant="action" size="sm" className="hidden sm:inline-flex">
-            <Link href="/e/jobs/new">Post a job</Link>
-          </Button>
+          <UserMenu />
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
@@ -115,12 +111,7 @@ export function SiteHeader({
               </nav>
 
               <div className="mt-4 flex flex-col gap-2 px-4">
-                <Button asChild variant="action" onClick={() => setOpen(false)}>
-                  <Link href="/e/jobs/new">Post a job</Link>
-                </Button>
-                <Button asChild variant="outline" onClick={() => setOpen(false)}>
-                  <Link href="/auth/login">Sign in</Link>
-                </Button>
+                <UserMenuMobile onNavigate={() => setOpen(false)} />
               </div>
             </SheetContent>
           </Sheet>

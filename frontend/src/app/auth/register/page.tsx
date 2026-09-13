@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { RegisterForm } from '@/components/auth/auth-forms';
@@ -26,7 +27,10 @@ export default async function RegisterPage(props: PageProps<'/auth/register'>) {
       </p>
 
       <div className="mt-6">
-        <RegisterForm role={role} />
+        {/* Reads `?next=`, so it renders on the client — see the login page. */}
+        <Suspense fallback={<div className="bg-muted h-96 animate-pulse rounded-lg" />}>
+          <RegisterForm role={role} />
+        </Suspense>
       </div>
 
       <div className="text-muted-foreground mt-6 space-y-2 text-sm">

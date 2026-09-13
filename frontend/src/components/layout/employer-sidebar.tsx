@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { EmployerProfile } from '@rokdajob/shared';
+
 import {
   Activity,
   BarChart3,
@@ -20,6 +21,8 @@ import {
 import { LogoMark } from '@/components/layout/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import { getMyEmployerProfile } from '@/lib/data/company';
+import { useUnreadMessages } from '@/lib/data/use-unread-messages';
 import { cn } from '@/lib/utils';
 
 const SECTIONS: {
@@ -51,14 +54,9 @@ const SECTIONS: {
   },
 ];
 
-function NavList({
-  onNavigate,
-  unreadMessages,
-}: {
-  onNavigate?: () => void;
-  unreadMessages: number;
-}) {
+function NavList({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const unreadMessages = useUnreadMessages();
 
   return (
     <nav aria-label="Employer navigation" className="flex-1 space-y-6 px-3">
@@ -106,31 +104,43 @@ function NavList({
   );
 }
 
-function CompanyCard({ employer }: { employer: EmployerProfile }) {
+/** The contractor's real company, from `/employer/me`. */
+function CompanyCard() {
+  const { data } = useQuery({ queryKey: ['my-employer-profile'], queryFn: getMyEmployerProfile });
+  const company = data?.company;
+
   return (
     <Link
       href="/e/company"
       className="hover:bg-sidebar-accent/60 mx-3 flex items-center gap-3 rounded-md px-3 py-3 transition-colors"
     >
-      <div className="bg-sidebar-accent flex size-9 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white">
-        {employer.company.name.slice(0, 2).toUpperCase()}
-      </div>
+      {company?.logoUrl ? (
+        // Already resized on upload and served from a CDN — next/image would only proxy it.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={company.logoUrl}
+          alt=""
+          className="size-9 shrink-0 rounded-md bg-white object-contain"
+        />
+      ) : (
+        <div className="bg-sidebar-accent flex size-9 shrink-0 items-center justify-center rounded-md text-sm font-bold text-white">
+          {company ? company.name.slice(0, 2).toUpperCase() : '—'}
+        </div>
+      )}
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-white">{employer.company.name}</p>
-        <p className="text-sidebar-muted truncate text-xs">{employer.designation}</p>
+        <p className="truncate text-sm font-semibold text-white">
+          {company?.name ?? 'Your company'}
+        </p>
+        <p className="text-sidebar-muted truncate text-xs">
+          {data?.designation ?? (company ? 'View profile' : 'Loading…')}
+        </p>
       </div>
       <ChevronRight className="text-sidebar-muted size-4 shrink-0" aria-hidden />
     </Link>
   );
 }
 
-export function EmployerSidebar({
-  employer,
-  unreadMessages = 0,
-}: {
-  employer: EmployerProfile;
-  unreadMessages?: number;
-}) {
+export function EmployerSidebar() {
   const [open, setOpen] = useState(false);
 
   const content = (
@@ -145,10 +155,10 @@ export function EmployerSidebar({
         </Link>
       </div>
 
-      <NavList onNavigate={() => setOpen(false)} unreadMessages={unreadMessages} />
+      <NavList onNavigate={() => setOpen(false)} />
 
       <div className="border-sidebar-border border-t pt-3">
-        <CompanyCard employer={employer} />
+        <CompanyCard />
       </div>
     </div>
   );

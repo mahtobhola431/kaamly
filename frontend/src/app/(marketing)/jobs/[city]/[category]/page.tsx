@@ -5,8 +5,8 @@ import { JobList } from '@/components/domain/job-card';
 import { Pagination, ResultCount, SortSelect } from '@/components/domain/result-controls';
 import { WorkerGrid } from '@/components/domain/worker-card';
 import { Button } from '@/components/ui/button';
-import { getCategories, getCategory, getCities, getCity } from '@/lib/data/catalog';
-import { searchJobs } from '@/lib/data/jobs';
+import { getCategory, getCity } from '@/lib/data/catalog';
+import { getJobFacets, searchJobs } from '@/lib/data/jobs';
 import { parseJobParams } from '@/lib/data/params';
 import { searchWorkers } from '@/lib/data/workers';
 import { routes } from '@/lib/routes';
@@ -18,17 +18,10 @@ import { routes } from '@/lib/routes';
  * returns 404 instead of an empty page Google would treat as thin (docs/06-RISKS.md R14).
  */
 export async function generateStaticParams() {
-  const [cities, categories] = await Promise.all([getCities(), getCategories()]);
-  const combos: { city: string; category: string }[] = [];
-
-  for (const city of cities) {
-    for (const category of categories) {
-      const { meta } = await searchJobs({ city: city.slug, category: category.slug, limit: 1 });
-      if (meta.total > 0) combos.push({ city: city.slug, category: category.slug });
-    }
-  }
-
-  return combos;
+  // One aggregation of the pairs that actually have open jobs, rather than a search
+  // request per city/category combination.
+  const facets = await getJobFacets();
+  return facets.map((facet) => ({ city: facet.city, category: facet.category }));
 }
 
 export async function generateMetadata(

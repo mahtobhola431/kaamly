@@ -43,6 +43,14 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    /**
+     * `lax` is right when the web app and the API share a registrable domain
+     * (app.example.com + api.example.com). Split across unrelated domains — a Vercel
+     * subdomain calling an AWS one — the browser treats every API call as cross-site and
+     * drops a `lax` cookie, which silently breaks the refresh flow. Those deployments need
+     * `none`, which browsers only honour together with `Secure`.
+     */
+    COOKIE_SAMESITE: z.enum(['lax', 'strict', 'none']).default('lax'),
 
     /** Comma separated list of allowed browser origins. */
     CORS_ORIGINS: z
@@ -86,6 +94,15 @@ const envSchema = z
       .transform((value) => value === 'true'),
   })
   .superRefine((value, ctx) => {
+    // Browsers reject `SameSite=None` without `Secure`, in every environment.
+    if (value.COOKIE_SAMESITE === 'none' && !value.COOKIE_SECURE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['COOKIE_SAMESITE'],
+        message: 'COOKIE_SAMESITE=none requires COOKIE_SECURE=true',
+      });
+    }
+
     if (value.NODE_ENV !== 'production') return;
 
     if (!value.COOKIE_SECURE) {

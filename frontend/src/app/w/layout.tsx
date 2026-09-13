@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { MapPin, Search } from 'lucide-react';
+import { Providers } from '@/app/providers';
 import { AvailabilityToggle } from '@/components/domain/availability-toggle';
-import { UserAvatar } from '@/components/domain/user-avatar';
+import { SessionAvatar } from '@/components/layout/account-menu';
 import { Logo } from '@/components/layout/logo';
 import { NotificationMenu } from '@/components/layout/notification-menu';
 import { WorkerBottomNav, WorkerSideNav } from '@/components/layout/worker-bottom-nav';
 import { Button } from '@/components/ui/button';
 import { Toaster } from '@/components/ui/sonner';
-import { getNotifications, getUnreadMessageCount } from '@/lib/data/messaging';
+import { getNotifications } from '@/lib/data/messaging';
 import { getCurrentWorker } from '@/lib/data/worker-area';
 import { routes } from '@/lib/routes';
 
@@ -19,10 +20,9 @@ import { routes } from '@/lib/routes';
  * The desktop rail exists so the same app is usable on a laptop without a second design.
  */
 export default async function WorkerLayout({ children }: LayoutProps<'/w'>) {
-  const [worker, notifications, unreadMessages] = await Promise.all([
+  const [worker, notifications] = await Promise.all([
     getCurrentWorker(),
     getNotifications('worker'),
-    getUnreadMessageCount('worker'),
   ]);
 
   return (
@@ -50,9 +50,7 @@ export default async function WorkerLayout({ children }: LayoutProps<'/w'>) {
               <AvailabilityToggle initial={worker.availability} />
             </div>
             <NotificationMenu notifications={notifications} allHref={routes.w.notifications} />
-            <Link href={routes.w.profile} aria-label="Your profile">
-              <UserAvatar user={worker.user} size="sm" />
-            </Link>
+            <SessionAvatar />
           </div>
         </div>
 
@@ -62,13 +60,13 @@ export default async function WorkerLayout({ children }: LayoutProps<'/w'>) {
       </header>
 
       <div className="container-dashboard flex flex-1 gap-6 py-5">
-        <WorkerSideNav unreadMessages={unreadMessages} />
+        <WorkerSideNav />
         <main id="main" className="min-w-0 flex-1 pb-20 md:pb-0">
-          {children}
+          <Providers>{children}</Providers>
         </main>
       </div>
 
-      <WorkerBottomNav unreadMessages={unreadMessages} />
+      <WorkerBottomNav />
       <Toaster />
     </div>
   );

@@ -7,7 +7,6 @@ const COLUMNS: { title: string; links: { href: string; label: string }[] }[] = [
     title: 'For employers',
     links: [
       { href: '/workers', label: 'Search workers' },
-      { href: '/e/jobs/new', label: 'Post a job' },
       { href: '/e', label: 'Employer dashboard' },
       { href: '/pricing', label: 'Pricing' },
       { href: '/for-employers', label: 'How hiring works' },
@@ -52,7 +51,7 @@ export function SiteFooter() {
         <div className="grid gap-10 lg:grid-cols-[1.5fr_3fr]">
           <div>
             <div className="flex items-center gap-2">
-          
+
               <span className="text-lg font-bold">Kaamly</span>
             </div>
             <p className="mt-3 max-w-xs text-sm text-white/70">{BRAND.tagline}</p>

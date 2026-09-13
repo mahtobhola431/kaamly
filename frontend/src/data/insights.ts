@@ -172,10 +172,10 @@ export const timeToHire = [
  * as such in the UI — never presented as audited platform metrics.
  */
 export const platformStats = [
-  { label: 'Workers on the platform', value: 12480, suffix: '+' },
-  { label: 'Jobs posted this month', value: 1960, suffix: '+' },
+  { label: 'Workers on the platform', value: 20, suffix: '+' },
+  { label: 'Jobs posted this month', value: 10, suffix: '+' },
   { label: 'Cities covered', value: 15, suffix: '' },
-  { label: 'Average time to first applicant', value: 22, suffix: ' min' },
+  { label: 'Average time to first applicant', value: 5, suffix: ' min' },
 ];
 
 export const testimonials = [
@@ -276,7 +276,7 @@ export const trustSignals = [
 
 export const faqs = [
   {
-    q: 'Is rokdajob free for workers?',
+    q: 'Is kaamly free for workers?',
     a: 'Yes. Creating a profile, searching for jobs and applying is free for workers, and always will be.',
   },
   {
@@ -285,7 +285,7 @@ export const faqs = [
   },
   {
     q: 'Do you handle wages or payments?',
-    a: 'No. Wages are settled directly between the employer and the worker. rokdajob is where you find each other and keep track of the hiring.',
+    a: 'No. Wages are settled directly between the employer and the worker. kaamly is where you find each other and keep track of the hiring.',
   },
   {
     q: 'Which cities do you cover?',

@@ -197,7 +197,13 @@ export interface Company extends Entity {
   logoUrl?: string;
   size?: string;
   foundedYear?: number;
-  location: GeoLocation;
+  /** Absent until the contractor sets one — a company is created from a name alone. */
+  location?: GeoLocation;
+  /**
+   * Only ever sent to the company's own owner (`/employer/*`). A job card carries
+   * `Job['company']`, which is a `Pick` that leaves this out.
+   */
+  gstin?: string;
   verification: { company: boolean; gstin: boolean };
   ratingAvg: number;
   ratingCount: number;
@@ -243,7 +249,7 @@ export interface Job extends Entity {
   /** Only present on geo search results. */
   distanceKm?: number;
   /** Viewer-specific flags, present when authenticated. */
-  viewer?: { hasApplied: boolean; hasSaved: boolean; applicationId?: string };
+  viewer?: { hasApplied: boolean; hasSaved?: boolean; applicationId?: string };
 }
 
 /* ---------------------------------------------------------------- application */
@@ -267,6 +273,9 @@ export interface Application extends Entity {
   stageHistory: ApplicationStageEvent[];
   rejectionReason?: string;
   hiredAt?: string;
+  withdrawnAt?: string;
+  /** The thread about this application, once either side has written a message. */
+  conversationId?: string;
 }
 
 /* ----------------------------------------------------------------- messaging */
@@ -274,6 +283,7 @@ export interface Application extends Entity {
 export interface Conversation extends Entity {
   participants: PublicUser[];
   job?: Pick<Job, 'id' | 'title' | 'slug'>;
+  application?: string;
   lastMessage?: { text: string; at: string; by: string };
   unreadCount: number;
 }

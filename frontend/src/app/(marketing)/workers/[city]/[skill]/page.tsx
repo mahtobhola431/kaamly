@@ -5,10 +5,10 @@ import { JobList } from '@/components/domain/job-card';
 import { Pagination, ResultCount, SortSelect } from '@/components/domain/result-controls';
 import { WorkerGrid } from '@/components/domain/worker-card';
 import { Button } from '@/components/ui/button';
-import { getCities, getCity, getSkills, resolveSkillSlug } from '@/lib/data/catalog';
+import { getCity, resolveSkillSlug } from '@/lib/data/catalog';
 import { searchJobs } from '@/lib/data/jobs';
 import { parseWorkerParams } from '@/lib/data/params';
-import { searchWorkers } from '@/lib/data/workers';
+import { getWorkerFacets, searchWorkers } from '@/lib/data/workers';
 import { routes } from '@/lib/routes';
 
 /**
@@ -18,17 +18,10 @@ import { routes } from '@/lib/routes';
  * the canonical skill slug, so both `electricians` and `electrician` resolve.
  */
 export async function generateStaticParams() {
-  const [cities, skills] = await Promise.all([getCities(), getSkills()]);
-  const combos: { city: string; skill: string }[] = [];
-
-  for (const city of cities) {
-    for (const skill of skills) {
-      const { meta } = await searchWorkers({ city: city.slug, skills: [skill.slug], limit: 1 });
-      if (meta.total > 0) combos.push({ city: city.slug, skill: `${skill.slug}s` });
-    }
-  }
-
-  return combos;
+  // One aggregation instead of a search per city/skill pair: at 15 cities and 39 skills
+  // the probing version made 585 requests and tripped the search rate limit.
+  const facets = await getWorkerFacets();
+  return facets.map((facet) => ({ city: facet.city, skill: `${facet.skill}s` }));
 }
 
 export async function generateMetadata(

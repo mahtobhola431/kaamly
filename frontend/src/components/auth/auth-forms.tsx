@@ -13,7 +13,9 @@ import { ApiClientError, api } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { clearSession, landingRouteFor, saveSession } from '@/lib/auth/session';
+import { postAuthRoute, safeNextPath } from '@/lib/auth/session';
+import { sessionEnded, sessionStarted } from '@/lib/store';
+import { useAppDispatch } from '@/lib/store/hooks';
 import { apiUrl } from '@/lib/env';
 import { routes } from '@/lib/routes';
 
@@ -110,10 +112,26 @@ function PasswordInput(props: React.ComponentProps<typeof Input>) {
  * Google sign-in. A plain link, not a fetch: OAuth needs a top-level navigation so the
  * backend can set the refresh cookie and hand control to Google.
  */
-function GoogleButton({ role, label }: { role?: 'WORKER' | 'EMPLOYER'; label: string }) {
+function GoogleButton({
+  role,
+  label,
+  next,
+}: {
+  role?: 'WORKER' | 'EMPLOYER';
+  label: string;
+  /** Carried through Google and back, so an interrupted action resumes here too. */
+  next?: string;
+}) {
+  // The token comes back in the URL fragment, which only `/auth/callback` knows how to
+  // read — so `next` rides along as one of its parameters rather than replacing it.
+  const query = new URLSearchParams({
+    ...(role ? { role } : {}),
+    ...(next ? { redirect: `/auth/callback?next=${encodeURIComponent(next)}` } : {}),
+  }).toString();
+
   return (
     <Button asChild variant="outline" className="w-full">
-      <a href={apiUrl(role ? `/auth/google?role=${role}` : '/auth/google')}>
+      <a href={apiUrl(query ? `/auth/google?${query}` : '/auth/google')}>
         <svg className="size-4" viewBox="0 0 24 24" aria-hidden>
           <path
             fill="#4285F4"
@@ -138,6 +156,27 @@ function GoogleButton({ role, label }: { role?: 'WORKER' | 'EMPLOYER'; label: st
   );
 }
 
+/**
+ * The page to return to after signing in, with the interrupted action attached.
+ *
+ * `signInHref` sends `next` (where they were) and `intent` (what they were about to do)
+ * as separate parameters; they are merged back into one URL here so the destination can
+ * pick the action up again — a worker who pressed "Apply" while signed out lands back on
+ * the job with the apply sheet already open.
+ */
+function returnPath(params: ReturnType<typeof useSearchParams>): string | undefined {
+  const next = safeNextPath(params.get('next'));
+  if (!next) return undefined;
+
+  const intent = params.get('intent');
+  if (!intent) return next;
+
+  const [path, existing] = next.split('#')[0]!.split('?');
+  const query = new URLSearchParams(existing);
+  query.set('intent', intent);
+  return `${path}?${query.toString()}`;
+}
+
 function OrDivider() {
   return (
     <div className="relative py-2 text-center">
@@ -156,6 +195,11 @@ const loginSchema = z.object({
 
 export function LoginForm() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const searchParams = useSearchParams();
+  // Set when the user was part-way through something — applying to a job, writing to an
+  // employer — and had to sign in first. They go back to it instead of to a dashboard.
+  const next = returnPath(searchParams);
   const {
     register,
     handleSubmit,
@@ -167,8 +211,8 @@ export function LoginForm() {
   async function onSubmit(values: z.infer<typeof loginSchema>): Promise<void> {
     try {
       const session = await api.post<AuthSession>('/auth/login', values);
-      saveSession(session.user, session.tokens.accessToken);
-      router.push(landingRouteFor(session.user));
+      dispatch(sessionStarted({ user: session.user, accessToken: session.tokens.accessToken }));
+      router.push(postAuthRoute(session.user, next));
       router.refresh();
     } catch (error) {
       // A blocked account is not a bad password: send them somewhere that explains it.
@@ -226,7 +270,7 @@ export function LoginForm() {
 
       <OrDivider />
 
-      <GoogleButton label="Continue with Google" />
+      <GoogleButton label="Continue with Google" next={next} />
     </form>
   );
 }
@@ -248,6 +292,9 @@ const employerRegisterSchema = z.object({
 
 export function RegisterForm({ role }: { role: 'worker' | 'employer' }) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
+  const searchParams = useSearchParams();
+  const next = returnPath(searchParams);
   const isEmployer = role === 'employer';
   const schema = isEmployer ? employerRegisterSchema : workerRegisterSchema;
 
@@ -275,12 +322,12 @@ export function RegisterForm({ role }: { role: 'worker' | 'employer' }) {
 
     try {
       const session = await api.post<AuthSession>('/auth/register', payload);
-      saveSession(session.user, session.tokens.accessToken);
+      dispatch(sessionStarted({ user: session.user, accessToken: session.tokens.accessToken }));
 
       toast.success(
         isEmployer ? 'Account created — pending approval' : `Welcome, ${session.user.name}`,
       );
-      router.push(landingRouteFor(session.user));
+      router.push(postAuthRoute(session.user, next));
       router.refresh();
     } catch (error) {
       showApiError(error, 'Could not create your account. Please try again.');
@@ -371,7 +418,7 @@ export function RegisterForm({ role }: { role: 'worker' | 'employer' }) {
 
       <OrDivider />
 
-      <GoogleButton role={isEmployer ? 'EMPLOYER' : 'WORKER'} label="Sign up with Google" />
+      <GoogleButton role={isEmployer ? 'EMPLOYER' : 'WORKER'} label="Sign up with Google" next={next} />
     </form>
   );
 }
@@ -450,6 +497,7 @@ const resetSchema = z
 
 export function ResetPasswordForm() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const searchParams = useSearchParams();
   const token = searchParams.get('token') ?? '';
   const {
@@ -480,7 +528,7 @@ export function ResetPasswordForm() {
         try {
           await api.post('/auth/password/reset', { ...values, token });
           // Every session was revoked server-side, so the only way on is a fresh sign-in.
-          clearSession();
+          dispatch(sessionEnded());
           toast.success('Password changed. Please sign in.');
           router.push(routes.login);
         } catch (error) {

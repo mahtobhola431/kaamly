@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { BRAND } from '@rokdajob/shared';
+import { StoreProvider } from '@/lib/store/store-provider';
 import { siteUrl } from '@/lib/env';
 import './globals.css';
 
@@ -60,7 +61,11 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         >
           Skip to main content
         </a>
-        {children}
+        {/*
+          Wraps everything, because the session decides what the header shows on a public
+          marketing page just as much as it does inside the signed-in app.
+        */}
+        <StoreProvider>{children}</StoreProvider>
       </body>
     </html>
   );

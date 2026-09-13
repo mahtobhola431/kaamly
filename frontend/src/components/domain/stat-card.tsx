@@ -45,7 +45,7 @@ export function StatCard({
       </div>
 
       <div className="mt-2 flex items-baseline gap-2">
-        <span className="text-2xl font-bold" data-numeric>
+        <span className="text-2xl font-bold text-muted-foreground" data-numeric>
           {animate && isNumeric ? (
             <AnimatedNumber value={value} suffix={suffix} />
           ) : (

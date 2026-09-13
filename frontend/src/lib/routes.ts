@@ -41,6 +41,22 @@ export const routes = {
   login: '/auth/login',
   register: (role?: 'worker' | 'employer') =>
     role ? `/auth/register?role=${role}` : '/auth/register',
+  /** Where Google sends the browser back to; reads the token out of the URL fragment. */
+  oauthCallback: '/auth/callback',
+  /**
+   * Sign in, then come back and finish what you started.
+   *
+   * `next` is where the user was and `intent` is what they were about to do, so the page
+   * they return to can reopen the apply sheet rather than making them press it twice.
+   */
+  loginToContinue: (next: string, intent?: string) =>
+    `/auth/login?${new URLSearchParams({ next, ...(intent ? { intent } : {}) }).toString()}`,
+  registerToContinue: (role: 'worker' | 'employer', next: string, intent?: string) =>
+    `/auth/register?${new URLSearchParams({
+      role,
+      next,
+      ...(intent ? { intent } : {}),
+    }).toString()}`,
   forgotPassword: '/auth/forgot-password',
   resetPassword: '/auth/reset-password',
   /** Where a contractor waits while an admin reviews their account. */

@@ -60,22 +60,64 @@ SUPPORT can read the queue only. Each decision is written to `adminactivities`.
 `GET /` public search (same geo params + `category`, `urgency`, `salaryMin`, `shift`)
 `GET /:idOrSlug` · `GET /recommended` (worker: skills ∩ radius) · `GET /nearby` · `GET /urgent`
 `POST /` (employer) · `PATCH /:id` · `DELETE /:id` · `PATCH /:id/status`
-`POST /:id/apply` (worker) · `POST /:id/save` · `DELETE /:id/save`
-`GET /:id/applications` (employer, owner-only) · `POST /:id/reviews`
+`POST /:id/save` · `DELETE /:id/save` · `POST /:id/reviews`
+
+**Applying** (built)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/:id/apply` | worker, approved. Body `{coverNote?, expectedWage?, phone?}` — all optional; the profile is the application. `201` for a new application, `200` when one already existed, so a retried tap is never an error. A withdrawn application is revived. `422 JOB_NOT_OPEN` / `422 VACANCIES_FULL` |
+| GET | `/:idOrSlug/my-application` | worker — the caller's own application, or `null`. Drives the apply button's state |
+| GET | `/:id/applications` | employer, owner-only. `?stage=&q=&sort=recent\|oldest&page=&limit=` |
+| GET | `/:id/applications/counts` | employer, owner-only — per-stage counts for the board |
 
 ## Employer CRM `/employer`
-`GET /dashboard` (stat block) · `GET /jobs` · `GET /applications` (pipeline board)
-`PATCH /applications/:id/stage` · `POST /applications/:id/hire` · `POST /applications/:id/reject`
+`GET /dashboard` (stat block, counted live) · `GET /me`
+
+**Company** (built). The company is created from the name given at registration, so every
+field is an edit rather than a first entry. `verification` and `ratingAvg` are absent on
+purpose — an admin grants the first, completed work earns the second.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/company` | the contractor's own record, including `gstin` and `activeJobCount`. Owner-only, which is why `gstin` is safe here and absent from `Job['company']` |
+| PATCH | `/company` | `{name?, type?, about?, size?, foundedYear?, gstin?, pincode? \| citySlug? \| location?}`. Renaming re-slugs. A **changed** GSTIN clears `verification.gstin`. An empty string clears a field; omitting it leaves it alone. Allowed before approval — filling the profile in is what the admin reviews |
+| POST | `/company/logo` | `multipart/form-data`, field `file`. JPEG/PNG/WebP/AVIF, ≤5MB. Resized and stored on Cloudinary under a per-company id, so a replacement overwrites rather than accumulating orphans |
+
+**Pipeline** (built; every route also needs `requireApproved`)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/applications` | the board. `?stage=&job=&q=&sort=recent\|oldest&page=&limit=` |
+| GET | `/applications/counts` | `{columns, counts}` — so an empty board still renders its stages |
+| PATCH | `/applications/:id/stage` | `{stage, note?}`. HIRED and REJECTED are **not** accepted here — each does more than move a card. Moves are checked against `ALLOWED_STAGE_TRANSITIONS`, the same table the board renders its menu from |
+| POST | `/applications/:id/hire` | `{note?}` — claims a vacancy with one guarded update; the loser of a race gets `422 VACANCIES_FULL`. The last vacancy sets the job to `FILLED` |
+| POST | `/applications/:id/reject` | `{reason}` required. Rejecting someone already hired returns their position and reopens the job |
+
 `GET /workers` (employer worker DB) · `GET /activity`
 `GET|POST /teams` · `PATCH /teams/:id` · `POST /teams/:id/members` · `DELETE /teams/:id/members/:memberId`
 `GET /analytics?range=30d`
 
-## Worker area `/me`
-`GET /applications` · `DELETE /applications/:id` (withdraw) · `GET /saved-jobs`
-`GET /work-history` · `GET /dashboard`
+## Worker area `/me`  (role=WORKER)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/applications` | `?stage=&active=true&page=&limit=` — `active` hides withdrawn and rejected |
+| GET | `/applications/counts` | per-stage counts plus `total` |
+| DELETE | `/applications/:id` | withdraw. Body `{reason?}`. Keeps the row — the employer should see that someone pulled out, and applying again reuses it |
 
-## Messaging `/conversations`
-`GET /` · `POST /` · `GET /:id` · `GET /:id/messages?cursor=` · `POST /:id/messages` · `POST /:id/read`
+Planned: `GET /saved-jobs` · `GET /work-history` · `GET /dashboard`
+
+## Messaging `/conversations`  (role=WORKER or EMPLOYER)
+A thread is always about a job or an application; there is no way to open one with a stranger.
+One thread per pair per job, so "Message employer" twice reopens rather than forks.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/` | inbox. `?job=&q=&page=&limit=`, newest activity first |
+| GET | `/unread-count` | `{total, threads}` for the shell badge |
+| POST | `/` | `{text, job? \| application? \| recipient?}` — the counterpart is derived, so a job page needs only the job id |
+| GET | `/:id` · `GET /:id/messages?cursor=&limit=` | history pages backwards by cursor; `meta.nextCursor` |
+| POST | `/:id/messages` | `{body}` |
+| POST | `/:id/read` | clears the caller's unread counter |
+| DELETE | `/:id` | hides the thread for the caller only |
 
 ## Notifications `/notifications`
 `GET /` · `GET /unread-count` · `POST /:id/read` · `POST /read-all`

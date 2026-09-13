@@ -1,23 +1,23 @@
 import { LIMITS } from '@rokdajob/shared';
 import type { Availability, PaginationMeta, Review, WorkerProfile } from '@rokdajob/shared';
-import { cityBySlug, distanceKm } from '@/data/geo';
-import { reviewsForWorker } from '@/data/reviews';
-import { workers } from '@/data/workers';
+import { ApiClientError, api } from '@/lib/api/client';
 
 /**
- * Worker discovery.
+ * Worker discovery, served by `GET /workers`.
  *
- * Filtering, sorting and pagination are implemented for real against the static dataset,
- * so every UI state — including "no results" — is genuinely reachable. When the API is
- * live this becomes `api.list<WorkerProfile>('/workers', { query: params })`.
+ * Filtering, sorting, distance and pagination all happen in MongoDB via `$geoNear`, so
+ * this module only maps the UI's parameter names onto the API's and passes them through.
  */
 
 export type WorkerSort = 'nearest' | 'rating' | 'experience' | 'wage_asc' | 'available' | 'recent';
 
 export interface WorkerSearchParams {
-  /** City slug; also used as the distance origin when no coordinates are given. */
+  /** City slug; also the distance origin when no coordinates are given. */
   city?: string;
   locality?: string;
+  pincode?: string;
+  lat?: number;
+  lng?: number;
   radiusKm?: number;
   /** Skill slugs. */
   skills?: string[];
@@ -28,7 +28,6 @@ export interface WorkerSearchParams {
   minRating?: number;
   verifiedOnly?: boolean;
   languages?: string[];
-  /** Free-text query matched against name, headline, skills and aliases. */
   q?: string;
   sort?: WorkerSort;
   page?: number;
@@ -40,139 +39,130 @@ export interface WorkerSearchResult {
   meta: PaginationMeta;
 }
 
-/** Normalises a per-month wage to a comparable daily figure (26 working days). */
-function dailyWage(worker: WorkerProfile): number {
-  const { amount, type } = worker.expectedWage;
-  if (type === 'PER_MONTH') return Math.round(amount / 26);
-  if (type === 'PER_HOUR') return amount * 8;
-  return amount;
-}
+const EMPTY_PAGE = (page: number, limit: number): PaginationMeta => ({
+  page,
+  limit,
+  total: 0,
+  totalPages: 0,
+  hasMore: false,
+});
 
-function matchesQuery(worker: WorkerProfile, q: string): boolean {
-  const haystack = [
-    worker.user.name,
-    worker.headline ?? '',
-    worker.location.formatted,
-    ...worker.skills.flatMap((entry) => [entry.skill.name, ...entry.skill.aliases]),
-  ]
-    .join(' ')
-    .toLowerCase();
-  return q
-    .toLowerCase()
-    .split(/\s+/)
-    .filter(Boolean)
-    .every((token) => haystack.includes(token));
-}
-
-/** Attaches `distanceKm` the way `$geoNear` does, relative to the search origin. */
-function withDistance(list: WorkerProfile[], citySlug?: string): WorkerProfile[] {
-  const origin = citySlug ? cityBySlug[citySlug]?.coordinates : undefined;
-  if (!origin) return list;
-  return list.map((worker) => ({
-    ...worker,
-    distanceKm: distanceKm(origin, worker.location.geo.coordinates),
-  }));
-}
-
-const SORTERS: Record<WorkerSort, (a: WorkerProfile, b: WorkerProfile) => number> = {
-  nearest: (a, b) => (a.distanceKm ?? 9999) - (b.distanceKm ?? 9999),
-  rating: (a, b) => b.ratingAvg - a.ratingAvg,
-  experience: (a, b) => b.experienceYears - a.experienceYears,
-  wage_asc: (a, b) => dailyWage(a) - dailyWage(b),
-  available: (a, b) =>
-    Number(b.availability === 'AVAILABLE_NOW') - Number(a.availability === 'AVAILABLE_NOW'),
-  recent: (a, b) => (b.user.lastActiveAt ?? '').localeCompare(a.user.lastActiveAt ?? ''),
-};
+/**
+ * The search needs somewhere to search from. Without coordinates, a pincode or a city the
+ * API returns 400, so the default city keeps a bare `/workers` page rendering.
+ */
+const DEFAULT_CITY = 'mumbai';
 
 export async function searchWorkers(params: WorkerSearchParams = {}): Promise<WorkerSearchResult> {
   const page = Math.max(params.page ?? 1, 1);
   const limit = Math.min(params.limit ?? LIMITS.pageSizeDefault, LIMITS.pageSizeMax);
-  const radius = params.radiusKm ?? LIMITS.searchRadiusDefaultKm;
 
-  let list = withDistance([...workers], params.city);
+  const hasOrigin = Boolean(
+    params.city ?? params.pincode ?? (params.lat !== undefined && params.lng !== undefined),
+  );
 
-  if (params.city) {
-    // Within the radius, or in the same city when we have no origin for the locality.
-    list = list.filter(
-      (worker) =>
-        worker.location.citySlug === params.city ||
-        (worker.distanceKm !== undefined && worker.distanceKm <= radius),
-    );
-  }
-  if (params.locality) {
-    list = list.filter((worker) => worker.location.localitySlug === params.locality);
-  }
-  if (params.skills?.length) {
-    list = list.filter((worker) =>
-      worker.skills.some((entry) => params.skills?.includes(entry.skill.slug)),
-    );
-  }
-  if (params.category) {
-    list = list.filter(
-      (worker) =>
-        worker.primaryCategory?.slug === params.category ||
-        worker.skills.some((entry) => entry.skill.category.slug === params.category),
-    );
-  }
-  if (params.minExperience) {
-    list = list.filter((worker) => worker.experienceYears >= (params.minExperience ?? 0));
-  }
-  if (params.availability?.length) {
-    list = list.filter((worker) => params.availability?.includes(worker.availability));
-  }
-  if (params.maxWage) {
-    list = list.filter((worker) => dailyWage(worker) <= (params.maxWage ?? Infinity));
-  }
-  if (params.minRating) {
-    list = list.filter((worker) => worker.ratingAvg >= (params.minRating ?? 0));
-  }
-  if (params.verifiedOnly) {
-    list = list.filter((worker) => worker.verification.profile);
-  }
-  if (params.languages?.length) {
-    list = list.filter((worker) =>
-      worker.languages.some((language) => params.languages?.includes(language)),
-    );
-  }
-  if (params.q?.trim()) {
-    list = list.filter((worker) => matchesQuery(worker, params.q as string));
-  }
-
-  list.sort(SORTERS[params.sort ?? (params.city ? 'nearest' : 'rating')]);
-
-  const total = list.length;
-  const totalPages = Math.max(Math.ceil(total / limit), 1);
-  const items = list.slice((page - 1) * limit, page * limit);
-
-  return {
-    items,
-    meta: { page, limit, total, totalPages, hasMore: page < totalPages },
+  const query: Record<string, string | number | boolean | string[] | undefined> = {
+    page,
+    limit,
+    radiusKm: params.radiusKm ?? LIMITS.searchRadiusDefaultKm,
+    sort: params.sort ?? 'nearest',
+    ...(hasOrigin ? {} : { city: DEFAULT_CITY }),
+    ...(params.city ? { city: params.city } : {}),
+    ...(params.locality ? { locality: params.locality } : {}),
+    ...(params.pincode ? { pincode: params.pincode } : {}),
+    ...(params.lat !== undefined ? { lat: params.lat } : {}),
+    ...(params.lng !== undefined ? { lng: params.lng } : {}),
+    ...(params.skills?.length ? { skill: params.skills } : {}),
+    ...(params.category ? { category: params.category } : {}),
+    ...(params.minExperience ? { minExperience: params.minExperience } : {}),
+    ...(params.maxWage ? { maxWage: params.maxWage } : {}),
+    ...(params.minRating ? { minRating: params.minRating } : {}),
+    ...(params.verifiedOnly ? { verified: 'true' } : {}),
+    ...(params.languages?.length ? { language: params.languages } : {}),
+    ...(params.q?.trim() ? { q: params.q.trim() } : {}),
+    // The API takes one availability value; the UI offers a set.
+    ...(params.availability?.length === 1 ? { availability: params.availability[0] } : {}),
   };
+
+  try {
+    const { items, meta } = await api.list<WorkerProfile>('/workers', {
+      query,
+      next: { revalidate: 30 },
+    });
+    return { items, meta };
+  } catch (error) {
+    // An unknown city or pincode is a bad URL, not a crash — render the empty state.
+    if (error instanceof ApiClientError && (error.status === 400 || error.status === 404)) {
+      return { items: [], meta: EMPTY_PAGE(page, limit) };
+    }
+    throw error;
+  }
 }
 
 export async function getWorker(id: string): Promise<WorkerProfile | null> {
-  return workers.find((worker) => worker.id === id || worker.user.id === id) ?? null;
+  // Anything that is not a Mongo id cannot identify a worker, so treat it as a miss
+  // rather than sending a request the API will reject.
+  if (!/^[0-9a-fA-F]{24}$/.test(id)) return null;
+
+  try {
+    return await api.get<WorkerProfile>(`/workers/${id}`, { next: { revalidate: 30 } });
+  } catch (error) {
+    if (error instanceof ApiClientError && (error.status === 404 || error.status === 400)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
+/**
+ * Reviews are not built yet — there is no `/workers/:id/reviews` endpoint.
+ * Returning nothing keeps the profile page rendering its empty state honestly.
+ */
 export async function getWorkerReviews(workerUserId: string): Promise<Review[]> {
-  return reviewsForWorker(workerUserId);
+  void workerUserId;
+  return [];
 }
 
-/** Workers who share a skill with the given one, for the "similar workers" rail. */
+/** Workers who share a skill, for the "similar workers" rail on a profile. */
 export async function getSimilarWorkers(worker: WorkerProfile, take = 4): Promise<WorkerProfile[]> {
-  const slugs = new Set(worker.skills.map((entry) => entry.skill.slug));
-  return workers
-    .filter(
-      (candidate) =>
-        candidate.id !== worker.id && candidate.skills.some((entry) => slugs.has(entry.skill.slug)),
-    )
-    .slice(0, take);
+  const slugs = worker.skills.map((entry) => entry.skill.slug);
+  if (slugs.length === 0) return [];
+
+  const { items } = await searchWorkers({
+    city: worker.location.citySlug,
+    skills: slugs,
+    radiusKm: LIMITS.searchRadiusMaxKm,
+    limit: take + 1,
+  });
+
+  return items.filter((candidate) => candidate.id !== worker.id).slice(0, take);
 }
 
 /** Counts per city, used by the SEO landing pages and the locations hub. */
 export async function getWorkerCountsByCity(): Promise<Record<string, number>> {
-  return workers.reduce<Record<string, number>>((counts, worker) => {
-    counts[worker.location.citySlug] = (counts[worker.location.citySlug] ?? 0) + 1;
-    return counts;
-  }, {});
+  return api.get<Record<string, number>>('/workers/counts-by-city', {
+    next: { revalidate: 300 },
+  });
+}
+
+export interface WorkerFacet {
+  city: string;
+  skill: string;
+  count: number;
+}
+
+/**
+ * City/skill pairs that actually have workers, for `generateStaticParams`.
+ *
+ * One request rather than one per combination — the probing version made 585 calls and
+ * tripped the search rate limit during a build.
+ */
+export async function getWorkerFacets(): Promise<WorkerFacet[]> {
+  try {
+    return await api.get<WorkerFacet[]>('/workers/facets', { next: { revalidate: 3600 } });
+  } catch {
+    // A build must not fail because the API is briefly unreachable; these pages then
+    // render on demand instead of being prerendered.
+    return [];
+  }
 }

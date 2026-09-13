@@ -63,7 +63,21 @@ export type GoogleCallbackInput = z.infer<typeof googleCallbackSchema>;
 export const googleStartSchema = z.object({
   /** Pre-selects the role so a first-time Google user lands fully registered. */
   role: registrableRoleSchema.optional(),
-  redirect: z.string().trim().max(300).optional(),
+  /**
+   * Where to land after the callback, so a sign-in that interrupted something returns to
+   * it. Constrained to a path on our own site: the callback resolves this against the web
+   * app's origin, and an absolute or protocol-relative value would turn our OAuth
+   * endpoint into an open redirect for anyone who can hand a user a link.
+   */
+  redirect: z
+    .string()
+    .trim()
+    .max(300)
+    .refine(
+      (value) => value.startsWith('/') && !value.startsWith('//') && !value.startsWith('/\\'),
+      'Redirect must be a path on this site',
+    )
+    .optional(),
 });
 export type GoogleStartInput = z.infer<typeof googleStartSchema>;
 

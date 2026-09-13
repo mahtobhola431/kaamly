@@ -23,6 +23,7 @@ import {
   Utensils,
 } from 'lucide-react';
 import { CompanyVerifiedBadge, JobStatusBadge, UrgencyBadge } from '@/components/domain/badges';
+import { JobApplyActions } from '@/components/domain/job-apply';
 import { JobCard } from '@/components/domain/job-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -329,9 +330,7 @@ export default async function JobDetailPage(props: PageProps<'/jobs/post/[slug]'
             <div className="mt-5 grid gap-2">
               {isOpen ? (
                 <>
-                  <Button variant="action" size="lg" className="w-full">
-                    Apply for this job
-                  </Button>
+                  <JobApplyActions job={job} />
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" size="sm">
                       <Bookmark aria-hidden />

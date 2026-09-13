@@ -2,7 +2,13 @@ import { Router } from 'express';
 import { BRAND } from '@rokdajob/shared';
 import { env } from '@/config/env';
 import { adminRouter } from '@/modules/admin/admin.routes';
+import { meRouter } from '@/modules/applications/application.routes';
 import { authRouter } from '@/modules/auth/auth.routes';
+import { catalogRouter } from '@/modules/catalog/catalog.routes';
+import { employerRouter } from '@/modules/employer/employer.routes';
+import { jobRouter } from '@/modules/jobs/job.routes';
+import { conversationRouter } from '@/modules/messaging/messaging.routes';
+import { workerRouter } from '@/modules/workers/worker.routes';
 import { healthRouter } from '@/modules/health/health.routes';
 
 /**
@@ -26,11 +32,12 @@ apiRouter.get('/', (_req, res) => {
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/auth', authRouter);
 apiRouter.use('/admin', adminRouter);
+apiRouter.use('/catalog', catalogRouter);
+apiRouter.use('/workers', workerRouter);
+apiRouter.use('/jobs', jobRouter);
+apiRouter.use('/employer', employerRouter);
+apiRouter.use('/me', meRouter);
+apiRouter.use('/conversations', conversationRouter);
 
 // Registered in later phases:
-//   apiRouter.use('/workers', workerRouter);       // Phase 5, 8
-//   apiRouter.use('/employer', employerRouter);    // Phase 6, 10
-//   apiRouter.use('/jobs', jobRouter);             // Phase 7, 9
-//   apiRouter.use('/conversations', chatRouter);   // Phase 12
 //   apiRouter.use('/notifications', notifyRouter); // Phase 13
-//   apiRouter.use('/catalog', catalogRouter);      // Phase 16

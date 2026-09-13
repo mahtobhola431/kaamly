@@ -1,11 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { z } from 'zod';
 import { LIMITS } from '@rokdajob/shared';
-import type { Category, SeedCity, Skill } from '@rokdajob/shared';
+import type { Category, Job, SeedCity, Skill } from '@rokdajob/shared';
 import { Check, Eye, Loader2, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -21,13 +22,15 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
+import { ApiClientError, api } from '@/lib/api/client';
+import { routes } from '@/lib/routes';
 import { cn } from '@/lib/utils';
 
 /**
  * Job posting form.
  *
- * The schema mirrors what `POST /jobs` will accept, including the vacancy and salary rules,
- * so the same validation moves to `@rokdajob/shared` when the endpoint lands.
+ * The schema mirrors what `POST /jobs` accepts, so a mistake is caught before the round
+ * trip; the server revalidates everything regardless.
  *
  * Gender and age fields are deliberately absent: they are gated behind
  * FEATURE_GENDER_AGE_FILTERS on the server and carry legal exposure (docs/06-RISKS.md R9).
@@ -67,6 +70,41 @@ const jobSchema = z
 
 type JobValues = z.infer<typeof jobSchema>;
 
+/** Field names the API uses that differ from the form's. */
+const SERVER_FIELD_MAP: Record<string, keyof JobValues> = {
+  'salary.amount': 'salaryAmount',
+  'salary.type': 'salaryType',
+  'workingHours.from': 'hoursFrom',
+  'workingHours.to': 'hoursTo',
+  category: 'categorySlug',
+  citySlug: 'citySlug',
+};
+
+/** Guards `setError` against a server path that has no input to attach to. */
+const FORM_FIELDS: Record<keyof JobValues, true> = {
+  title: true,
+  categorySlug: true,
+  skills: true,
+  description: true,
+  workersRequired: true,
+  citySlug: true,
+  localitySlug: true,
+  startDate: true,
+  durationDays: true,
+  shift: true,
+  hoursFrom: true,
+  hoursTo: true,
+  salaryAmount: true,
+  salaryType: true,
+  negotiable: true,
+  accommodation: true,
+  food: true,
+  transport: true,
+  experienceRequiredYears: true,
+  urgency: true,
+  contactPreference: true,
+};
+
 function Field({
   label,
   htmlFor,
@@ -101,13 +139,15 @@ export function JobPostForm({
   categories: Category[];
   skills: Skill[];
 }) {
-  const [savedAs, setSavedAs] = useState<'draft' | 'published' | null>(null);
+  const router = useRouter();
+  const [pending, setPending] = useState<'DRAFT' | 'PUBLISHED' | null>(null);
 
   const {
     register,
     handleSubmit,
     control,
     setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<JobValues>({
     resolver: zodResolver(jobSchema),
@@ -143,16 +183,101 @@ export function JobPostForm({
   const localities = cities.find((city) => city.slug === citySlug)?.localities ?? [];
   const categorySkills = skills.filter((skill) => skill.category.slug === categorySlug);
 
-  async function submit(mode: 'draft' | 'published'): Promise<void> {
-    await new Promise((resolve) => setTimeout(resolve, 600));
-    setSavedAs(mode);
-    toast.success(mode === 'draft' ? 'Saved as draft' : 'Job ready to publish', {
-      description: 'The jobs API is not connected yet, so nothing was created.',
+  /**
+   * The form works in slugs because that is what the pickers render; the API addresses
+   * categories and skills by id. The translation happens here rather than in the UI so a
+   * skill chip never has to know about database ids.
+   */
+  async function submit(values: JobValues, status: 'DRAFT' | 'PUBLISHED'): Promise<void> {
+    const category = categories.find((item) => item.slug === values.categorySlug);
+    if (!category) {
+      setError('categorySlug', { type: 'server', message: 'Choose a category' });
+      return;
+    }
+
+    const skillIds = values.skills.flatMap((slug) => {
+      const skill = skills.find((item) => item.slug === slug);
+      return skill ? [skill.id] : [];
     });
+
+    setPending(status);
+    try {
+      const job = await api.post<Job>('/jobs', {
+        title: values.title,
+        description: values.description,
+        category: category.id,
+        skills: skillIds,
+        workersRequired: values.workersRequired,
+        citySlug: values.citySlug,
+        ...(values.localitySlug ? { localitySlug: values.localitySlug } : {}),
+        ...(values.startDate ? { startDate: values.startDate } : {}),
+        durationDays: values.durationDays,
+        shift: values.shift,
+        workingHours: { from: values.hoursFrom, to: values.hoursTo },
+        salary: {
+          amount: values.salaryAmount,
+          type: values.salaryType,
+          negotiable: values.negotiable,
+        },
+        perks: {
+          accommodation: values.accommodation,
+          food: values.food,
+          transport: values.transport,
+        },
+        experienceRequiredYears: values.experienceRequiredYears,
+        urgency: values.urgency,
+        contactPreference: values.contactPreference,
+        status,
+      });
+
+      toast.success(status === 'PUBLISHED' ? 'Job published' : 'Draft saved', {
+        description:
+          status === 'PUBLISHED'
+            ? `${job.title} is now visible to workers near ${job.location.city}.`
+            : 'You can publish it from your jobs list when you are ready.',
+      });
+
+      router.push(routes.e.jobs);
+      router.refresh();
+    } catch (error) {
+      applyError(error);
+    } finally {
+      setPending(null);
+    }
+  }
+
+  /** Puts a server complaint on the field that caused it, where the names line up. */
+  function applyError(error: unknown): void {
+    if (!(error instanceof ApiClientError)) {
+      toast.error('Could not save the job. Please try again.');
+      return;
+    }
+
+    // A contractor who has not been approved cannot post at all — say so plainly.
+    if (error.code === 'ACCOUNT_PENDING_APPROVAL' || error.code === 'ACCOUNT_REJECTED') {
+      toast.error('Your account cannot post jobs yet', { description: error.message });
+      return;
+    }
+
+    const fields = error.fieldErrors();
+    let matched = false;
+    for (const [path, message] of Object.entries(fields)) {
+      const field = SERVER_FIELD_MAP[path] ?? (path as keyof JobValues);
+      if (field in FORM_FIELDS) {
+        setError(field, { type: 'server', message });
+        matched = true;
+      }
+    }
+
+    if (!matched) toast.error(error.message);
   }
 
   return (
-    <form onSubmit={handleSubmit(() => submit('published'))} noValidate className="space-y-6">
+    <form
+      onSubmit={handleSubmit((values) => submit(values, 'PUBLISHED'))}
+      noValidate
+      className="space-y-6"
+    >
       <section className="bg-card space-y-4 rounded-lg border p-5">
         <h2 className="font-semibold">What do you need?</h2>
 
@@ -504,28 +629,31 @@ export function JobPostForm({
       </section>
 
       <div className="bg-background/95 sticky bottom-0 flex flex-wrap items-center gap-3 border-t py-3 backdrop-blur">
-        <Button type="submit" variant="action" disabled={isSubmitting}>
-          {isSubmitting ? <Loader2 className="animate-spin" aria-hidden /> : <Send aria-hidden />}
+        <Button type="submit" variant="action" disabled={isSubmitting || pending !== null}>
+          {pending === 'PUBLISHED' ? (
+            <Loader2 className="animate-spin" aria-hidden />
+          ) : (
+            <Send aria-hidden />
+          )}
           Publish job
         </Button>
+        {/*
+          A draft goes through the same validation as a publish: the API applies one schema
+          to both, so letting an invalid draft through would only fail on the server.
+        */}
         <Button
           type="button"
           variant="outline"
-          disabled={isSubmitting}
-          onClick={() => void submit('draft')}
+          disabled={isSubmitting || pending !== null}
+          onClick={() => void handleSubmit((values) => submit(values, 'DRAFT'))()}
         >
+          {pending === 'DRAFT' ? <Loader2 className="animate-spin" aria-hidden /> : null}
           Save as draft
         </Button>
         <Button type="button" variant="ghost" disabled>
           <Eye aria-hidden />
           Preview
         </Button>
-
-        {savedAs ? (
-          <span className="text-success text-sm">
-            {savedAs === 'draft' ? 'Draft saved locally' : 'Ready to publish'}
-          </span>
-        ) : null}
       </div>
     </form>
   );

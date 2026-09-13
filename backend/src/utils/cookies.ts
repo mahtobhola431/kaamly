@@ -13,8 +13,10 @@ function baseOptions(): CookieOptions {
   return {
     httpOnly: true,
     secure: env.COOKIE_SECURE,
-    // `lax` still sends the cookie on the top-level GET that Google redirects back to.
-    sameSite: 'lax',
+    // `lax` by default: it still rides the top-level GET that Google redirects back to.
+    // Deployments that split the web app and the API across unrelated domains have to set
+    // `none` — see COOKIE_SAMESITE in config/env.ts.
+    sameSite: env.COOKIE_SAMESITE,
     ...(env.COOKIE_DOMAIN ? { domain: env.COOKIE_DOMAIN } : {}),
   };
 }

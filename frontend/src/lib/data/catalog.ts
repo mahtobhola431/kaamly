@@ -1,46 +1,68 @@
 import type { Category, SeedCity, Skill } from '@rokdajob/shared';
-import { categories, popularSkills, skills } from '@/data/catalog';
-import { cityBySlug, cities, featuredCities } from '@/data/geo';
+import { api } from '@/lib/api/client';
 
-/** Taxonomy reads. Replace the bodies with `GET /catalog/*` when the API is live. */
+/**
+ * Taxonomy and geography, served by `GET /catalog/*`.
+ *
+ * Reference data changes rarely, so every read is cached by Next for an hour and tagged
+ * `catalog` — a future admin edit can invalidate the whole set with one
+ * `revalidateTag('catalog')` rather than waiting for each page to expire.
+ */
+const CACHE = { next: { revalidate: 3600, tags: ['catalog'] } };
 
 export async function getCategories(): Promise<Category[]> {
-  return categories;
+  return api.get<Category[]>('/catalog/categories', CACHE);
 }
 
 export async function getCategory(slug: string): Promise<Category | null> {
+  const categories = await getCategories();
   return categories.find((category) => category.slug === slug) ?? null;
 }
 
 export async function getSkills(categorySlug?: string): Promise<Skill[]> {
-  if (!categorySlug) return skills;
-  return skills.filter((skill) => skill.category.slug === categorySlug);
+  return api.get<Skill[]>('/catalog/skills', {
+    ...CACHE,
+    ...(categorySlug ? { query: { category: categorySlug } } : {}),
+  });
 }
 
 export async function getSkill(slug: string): Promise<Skill | null> {
+  const skills = await getSkills();
   return skills.find((skill) => skill.slug === slug) ?? null;
 }
 
-export async function getPopularSkills(): Promise<Skill[]> {
-  return popularSkills;
+/** Highest demand first — the API already sorts on `demandScore`. */
+export async function getPopularSkills(take = 12): Promise<Skill[]> {
+  const skills = await getSkills();
+  return skills.slice(0, take);
 }
 
 export async function getCities(): Promise<readonly SeedCity[]> {
-  return cities;
-}
-
-export async function getFeaturedCities(): Promise<readonly SeedCity[]> {
-  return featuredCities;
+  return api.get<SeedCity[]>('/catalog/cities', CACHE);
 }
 
 export async function getCity(slug: string): Promise<SeedCity | null> {
-  return cityBySlug[slug] ?? null;
+  const cities = await getCities();
+  return cities.find((city) => city.slug === slug) ?? null;
 }
 
-/** Resolves a skill slug that may be a plural SEO segment, e.g. `electricians`. */
+/** Cities with enough localities to make a landing page worth rendering. */
+export async function getFeaturedCities(take = 8): Promise<readonly SeedCity[]> {
+  const cities = await getCities();
+  return [...cities].sort((a, b) => b.localities.length - a.localities.length).slice(0, take);
+}
+
+/**
+ * Resolves a skill slug that may be a plural SEO segment, e.g. `electricians`.
+ *
+ * The trailing "s" is only dropped when the exact slug misses, so a genuine slug ending
+ * in "s" is never mangled.
+ */
 export async function resolveSkillSlug(segment: string): Promise<Skill | null> {
+  const skills = await getSkills();
   const direct = skills.find((skill) => skill.slug === segment);
   if (direct) return direct;
+
   const singular = segment.replace(/s$/, '');
   return skills.find((skill) => skill.slug === singular) ?? null;
 }
