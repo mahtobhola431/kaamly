@@ -13,6 +13,17 @@ const nextConfig: NextConfig = {
   // workspace package behaves like local source.
   transpilePackages: ['@rokdajob/shared'],
 
+  // Proxy API requests through Vercel so the browser uses HTTPS.
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination:
+          'http://ec2-3-92-52-134.compute-1.amazonaws.com/api/:path*',
+      },
+    ];
+  },
+
   images: {
     // `domains` is removed in Next 16 — remotePatterns only.
     remotePatterns: [
@@ -37,7 +48,10 @@ const nextConfig: NextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'X-DNS-Prefetch-Control', value: 'on' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), interest-cohort=()' },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), interest-cohort=()',
+          },
         ],
       },
     ];
