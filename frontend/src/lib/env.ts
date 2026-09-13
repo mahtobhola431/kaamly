@@ -7,8 +7,17 @@ import { z } from 'zod';
  * referenced statically — destructuring `process.env` at runtime would not work.
  */
 const clientEnvSchema = z.object({
-  NEXT_PUBLIC_API_URL: z.string().url('NEXT_PUBLIC_API_URL must be a full URL'),
-  NEXT_PUBLIC_SITE_URL: z.string().url('NEXT_PUBLIC_SITE_URL must be a full URL'),
+
+NEXT_PUBLIC_API_URL: z.string().refine(
+  (value) => {
+    if (process.env.NEXT_PUBLIC_APP_ENV === 'production') {
+      return value.startsWith('/api/');
+    }
+
+    return URL.canParse(value);
+  },
+  'NEXT_PUBLIC_API_URL must be a valid API URL',
+),  NEXT_PUBLIC_SITE_URL: z.string().url('NEXT_PUBLIC_SITE_URL must be a full URL'),
   NEXT_PUBLIC_APP_ENV: z.enum(['development', 'staging', 'production']).default('development'),
 });
 
